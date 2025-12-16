@@ -239,7 +239,6 @@ impl InitArgs {
             if !dest.exists() {
                 fs::write(dest, config.clone().into_basic().to_string_pretty()?)?;
             }
-
             let git = self.install.git(&config);
 
             // set up the repo

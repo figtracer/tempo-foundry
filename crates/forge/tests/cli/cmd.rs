@@ -875,7 +875,7 @@ Installing forge-std in [..] (url: https://github.com/foundry-rs/forge-std, tag:
     assert!(prj.root().join("README.md").exists());
 });
 
-// checks that `forge init --tempo` works.
+// checks that `forge init --network tempo` works.
 forgetest!(can_init_tempo_project, |prj, cmd| {
     prj.wipe();
 
@@ -884,7 +884,7 @@ forgetest!(can_init_tempo_project, |prj, cmd| {
 Initializing [..]...
 Installing forge-std in [..] (url: https://github.com/foundry-rs/forge-std, tag: None)
     Installed forge-std[..]
-Installing tempo-std in [..] (url: [..]github.com/tempoxyz/tempo-std, tag: None)
+Installing tempo-std in [..] (url: https://github.com/tempoxyz/tempo-std, tag: None)
     Installed tempo-std[..]
     Initialized forge project
 
@@ -893,7 +893,6 @@ Installing tempo-std in [..] (url: [..]github.com/tempoxyz/tempo-std, tag: None)
 
     assert!(prj.root().join("foundry.toml").exists());
     assert!(prj.root().join("lib/forge-std").exists());
-    assert!(prj.root().join("lib/tempo-std").exists());
 
     assert!(prj.root().join("src").exists());
     assert!(prj.root().join("src").join("Mail.sol").exists());

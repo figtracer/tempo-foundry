@@ -40,7 +40,7 @@ $ forge snapshot
 ### Deploy
 
 ```shell
-$ forge script script/Mail.s.sol:MailScript --rpc-url <YOUR_RPC_URL> --private-key <YOUR_PRIVATE_KEY>
+$ forge script script/Mail.s.sol:MailScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
 
 ### Cast

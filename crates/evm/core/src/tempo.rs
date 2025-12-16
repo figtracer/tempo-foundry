@@ -136,4 +136,8 @@ impl<'a> PrecompileStorageProvider for FoundryStorageProvider<'a> {
     fn beneficiary(&self) -> Address {
         self.beneficiary
     }
+
+    fn is_static(&self) -> bool {
+        false
+    }
 }

@@ -225,7 +225,7 @@ impl InitArgs {
                 }
             }
 
-            // write the README.md
+            // Write the README file
             let readme_path = root.join("README.md");
             if tempo {
                 fs::write(readme_path, include_str!("../../assets/tempo/README.md"))?;
@@ -233,10 +233,12 @@ impl InitArgs {
                 fs::write(readme_path, include_str!("../../assets/README.md"))?;
             }
 
-            // write foundry.toml
-            fs::write(root.join(Config::FILE_NAME), include_str!("../../assets/foundry.toml"))?;
+            // write foundry.toml, if it doesn't exist already
+            let dest = root.join(Config::FILE_NAME);
             let mut config = Config::load_with_root(&root)?;
-
+            if !dest.exists() {
+                fs::write(dest, config.clone().into_basic().to_string_pretty()?)?;
+            }
             let git = self.install.git(&config);
 
             // set up the repo

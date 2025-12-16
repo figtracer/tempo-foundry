@@ -11817,8 +11817,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-alloy"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -11839,8 +11839,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-chainspec"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "alloy-eips",
  "alloy-genesis",
@@ -11859,8 +11859,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-commonware-node-config"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "commonware-codec",
  "commonware-cryptography",
@@ -11874,8 +11874,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-consensus"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -11891,16 +11891,16 @@ dependencies = [
 
 [[package]]
 name = "tempo-contracts"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "alloy",
 ]
 
 [[package]]
 name = "tempo-evm"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -11930,8 +11930,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-payload-types"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-engine",
@@ -11947,8 +11947,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-precompiles"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "alloy",
  "alloy-evm",
@@ -11964,8 +11964,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-precompiles-macros"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "alloy",
  "proc-macro2",
@@ -11975,8 +11975,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-primitives"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -12000,8 +12000,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-revm"
-version = "0.7.4"
-source = "git+https://github.com/tempoxyz/tempo?rev=f8c4c03#f8c4c034563b8588d094df0058e3d00341b0099b"
+version = "0.7.5"
+source = "git+https://github.com/tempoxyz/tempo?rev=0806822#0806822297389c3abc59150ed0a627029ece32f5"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",

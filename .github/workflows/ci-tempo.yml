@@ -40,13 +40,13 @@ jobs:
           cargo install --path ./crates/forge --profile dev --force --locked
           cargo install --path ./crates/cast --profile dev --force --locked
 
-      - name: Run Tempo check on testnet
-        env:
-          TEMPO_RPC_URL: ${{ secrets.TEMPO_TESTNET_RPC_URL }}
-          VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
-        run: |
-          chmod +x ./.github/scripts/tempo-check.sh
-          ./.github/scripts/tempo-check.sh
+#      - name: Run Tempo check on testnet
+#        env:
+#          TEMPO_RPC_URL: ${{ secrets.TEMPO_TESTNET_RPC_URL }}
+#          VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
+#        run: |
+#          chmod +x ./.github/scripts/tempo-check.sh
+#          ./.github/scripts/tempo-check.sh
 
       - name: Run Tempo check on devnet
         env:

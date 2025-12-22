@@ -49,6 +49,17 @@ jobs:
           cargo install --path ./crates/forge --profile dev --force --locked
           cargo install --path ./crates/cast --profile dev --force --locked
 
+      - name: Run Tempo check on devnet
+        if: |
+          github.event_name == 'pull_request' ||
+          github.event.inputs.network == 'devnet' ||
+          github.event.inputs.network == 'all'
+        env:
+          TEMPO_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
+        run: |
+          chmod +x ./.github/scripts/tempo-check.sh
+          ./.github/scripts/tempo-check.sh
+
       - name: Run Tempo check on testnet
         if: |
           github.event_name == 'pull_request' ||
@@ -57,17 +68,6 @@ jobs:
         env:
           TEMPO_RPC_URL: ${{ secrets.TEMPO_TESTNET_RPC_URL }}
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
-        run: |
-          chmod +x ./.github/scripts/tempo-check.sh
-          ./.github/scripts/tempo-check.sh
-
-      - name: Run Tempo check on devnet
-        if: |
-          github.event_name == 'pull_request' ||
-          github.event.inputs.network == 'devnet' ||
-          github.event.inputs.network == 'all'
-        env:
-          TEMPO_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
         run: |
           chmod +x ./.github/scripts/tempo-check.sh
           ./.github/scripts/tempo-check.sh

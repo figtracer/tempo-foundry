@@ -270,7 +270,7 @@ impl ScriptRunner {
                 authorization_list,
                 true,
             )
-        } else if to.is_none() {
+        } else {
             let res = self.executor.deploy(
                 from,
                 calldata.expect("No data for create transaction"),
@@ -299,8 +299,6 @@ impl ScriptRunner {
                 address: Some(address),
                 ..Default::default()
             })
-        } else {
-            eyre::bail!("ENS not supported.");
         }
     }
 

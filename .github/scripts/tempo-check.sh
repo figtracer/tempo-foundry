@@ -11,7 +11,7 @@ echo -e "\n=== FORGE TEST (LOCAL) ==="
 forge test
 
 echo -e "\n=== FORGE SCRIPT (LOCAL) ==="
-forge script script/Mail.s.sol
+forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)"
 
 echo -e "\n=== START TEMPO FORK TESTS ==="
 
@@ -22,7 +22,7 @@ echo -e "\n=== FORGE TEST (FORK) ==="
 forge test --rpc-url "$TEMPO_RPC_URL"
 
 echo -e "\n=== FORGE SCRIPT (FORK) ==="
-forge script script/Mail.s.sol --rpc-url "$TEMPO_RPC_URL"
+forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url "$TEMPO_RPC_URL"
 
 echo -e "\n=== CREATE AND FUND ADDRESS ==="
 wallet_json="$(cast wallet new --json)"
@@ -62,11 +62,11 @@ echo -e "\n=== ADD ThetaUSD FEE TOKEN LIQUIDITY ==="
 cast send 0xfeec000000000000000000000000000000000000 'mint(address,address,uint256,address)' 0x20C0000000000000000000000000000000000003 0x20C0000000000000000000000000000000000000 1000000000 0x6c4143BEd3A13cf9E5E43d45C60aD816FC091d0c --private-key "$PK" --rpc-url "$TEMPO_RPC_URL"
 
 echo -e "\n=== FORGE SCRIPT DEPLOY ==="
-forge script script/Mail.s.sol --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
+forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
 
 echo -e "\n=== FORGE SCRIPT DEPLOY WITH FEE TOKEN ==="
-forge script --fee-token 2 script/Mail.s.sol --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
-forge script --fee-token 3 script/Mail.s.sol --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
+forge script --fee-token 2 script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
+forge script --fee-token 3 script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
 
 echo -e "\n=== FORGE CREATE DEPLOY ==="
 forge create src/Mail.sol:Mail --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}" --constructor-args 0x20c0000000000000000000000000000000000000
@@ -96,20 +96,20 @@ cast send --rpc-url "$TEMPO_RPC_URL" 0xfeec000000000000000000000000000000000000 
 cast send --rpc-url "$TEMPO_RPC_URL" 0xfeec000000000000000000000000000000000000 'setUserToken(address)' 0x20C0000000000000000000000000000000000000 --private-key "$PK"
 
 echo -e "\n=== ADD LIQUIDITY: APPROVE DEX ==="
-cast erc20 approve 0x20c0000000000000000000000000000000000002 0xdec0000000000000000000000000000000000000 100000000 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
-cast erc20 approve 0x20c0000000000000000000000000000000000000 0xdec0000000000000000000000000000000000000 100000000 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
+cast erc20 approve 0x20c0000000000000000000000000000000000002 0xdec0000000000000000000000000000000000000 10000000000 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
+cast erc20 approve 0x20c0000000000000000000000000000000000000 0xdec0000000000000000000000000000000000000 10000000000 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
 
 echo -e "\n=== ADD LIQUIDITY: PLACE BID ==="
-cast send 0xdec0000000000000000000000000000000000000 "place(address,uint128,bool,int16)" 0x20c0000000000000000000000000000000000002 10000000 true 10 --private-key "$PK" -r "$TEMPO_RPC_URL"
+cast send 0xdec0000000000000000000000000000000000000 "place(address,uint128,bool,int16)" 0x20c0000000000000000000000000000000000002 100000000 true 10 --private-key "$PK" -r "$TEMPO_RPC_URL"
 
 echo -e "\n=== ADD LIQUIDITY: PLACE ASK ==="
-cast send 0xdec0000000000000000000000000000000000000 "place(address,uint128,bool,int16)" 0x20c0000000000000000000000000000000000002 10000000 false 10 --private-key "$PK" -r "$TEMPO_RPC_URL"
+cast send 0xdec0000000000000000000000000000000000000 "place(address,uint128,bool,int16)" 0x20c0000000000000000000000000000000000002 100000000 false 10 --private-key "$PK" -r "$TEMPO_RPC_URL"
 
 echo -e "\n=== ADD LIQUIDITY: PLACE FLIP ==="
-cast send 0xdec0000000000000000000000000000000000000 "placeFlip(address,uint128,bool,int16,int16)" 0x20c0000000000000000000000000000000000002 10000000 true -10 10 --private-key "$PK" -r "$TEMPO_RPC_URL"
+cast send 0xdec0000000000000000000000000000000000000 "placeFlip(address,uint128,bool,int16,int16)" 0x20c0000000000000000000000000000000000002 100000000 true -10 10 --private-key "$PK" -r "$TEMPO_RPC_URL"
 
 echo -e "\n=== ADD LIQUIDITY: SWAP EXACT AMOUNT IN ==="
-cast send 0xdec0000000000000000000000000000000000000 "swapExactAmountIn(address,address,uint128,uint128)" 0x20c0000000000000000000000000000000000000 0x20c0000000000000000000000000000000000002 10000000 9000000 --private-key "$PK" -r "$TEMPO_RPC_URL"
+cast send 0xdec0000000000000000000000000000000000000 "swapExactAmountIn(address,address,uint128,uint128)" 0x20c0000000000000000000000000000000000000 0x20c0000000000000000000000000000000000002 100000000 9000000 --private-key "$PK" -r "$TEMPO_RPC_URL"
 
 echo -e "\n=== ADD LIQUIDITY: SWAP EXACT AMOUNT OUT ==="
-cast send 0xdec0000000000000000000000000000000000000 "swapExactAmountOut(address,address,uint128,uint128)" 0x20c0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000000 9000000 10000000 --private-key "$PK" -r "$TEMPO_RPC_URL"
+cast send 0xdec0000000000000000000000000000000000000 "swapExactAmountOut(address,address,uint128,uint128)" 0x20c0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000000 9000000 100000000 --private-key "$PK" -r "$TEMPO_RPC_URL"

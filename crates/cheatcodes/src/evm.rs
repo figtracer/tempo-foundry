@@ -1100,6 +1100,13 @@ impl Cheatcode for executeTransactionCall {
             // convenience
             env.cfg.disable_nonce_check = false;
 
+            // EIP-3860: Enforce initcode size limit for executeTransaction to match production behavior.
+            // The global config sets limit_contract_code_size = usize::MAX for test flexibility,
+            // which causes max_initcode_size() to return usize::MAX. We override this here to
+            // enforce the EIP-3860 limit (49152 bytes) for realistic transaction simulation.
+            env.cfg.limit_contract_initcode_size =
+                Some(revm::primitives::eip3860::MAX_INITCODE_SIZE);
+
             let mut evm = new_evm_with_inspector(db, env.to_owned(), &mut *inspector);
 
             // Clone the journaled state and mark all accounts/slots cold

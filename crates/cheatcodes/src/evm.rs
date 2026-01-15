@@ -1096,7 +1096,8 @@ impl Cheatcode for executeTransactionCall {
             *env.tx = tempo_tx_env;
 
             // Enable nonce checks for executeTransaction to properly simulate real transactions
-            // This is different from regular test calls where nonce checks are disabled for convenience
+            // This is different from regular test calls where nonce checks are disabled for
+            // convenience
             env.cfg.disable_nonce_check = false;
 
             let mut evm = new_evm_with_inspector(db, env.to_owned(), &mut *inspector);

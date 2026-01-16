@@ -236,7 +236,7 @@ svm = { package = "svm-rs", version = "0.5", default-features = false, features 
 ] }
 
 ## alloy
-alloy-consensus = { version = "1.1.3", default-features = false }
+alloy-consensus = { version = "1.4.3", default-features = false }
 alloy-contract = { version = "1.1.3", default-features = false }
 alloy-eips = { version = "1.1.3", default-features = false }
 alloy-eip5792 = { version = "1.1.3", default-features = false }

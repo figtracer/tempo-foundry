@@ -172,12 +172,18 @@ impl MakeTxArgs {
             tx::validate_from_address(eth.wallet.from, from)?;
         }
 
-        let (mut tx, _) = tx_builder.build(&signer, fee_token).await?;
+        // For access keys, pass the root account address so gas estimation and nonce lookup
+        // use the correct address. For regular transactions, pass the signer so EIP-7702
+        // authorization signing can work.
+        let (mut tx, _) = if access_key_config.is_some() {
+            tx_builder.build(from, fee_token).await?
+        } else {
+            tx_builder.build(&signer, fee_token).await?
+        };
 
-        // For access keys, set the key_id and override the from address
+        // For access keys, set the key_id
         if let Some(ref config) = access_key_config {
             tx.key_id = Some(config.key_id);
-            tx.set_from(config.root_account);
         }
 
         let signed_tx = if access_key_config.is_some() {

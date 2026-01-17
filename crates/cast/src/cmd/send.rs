@@ -198,12 +198,18 @@ impl SendTxArgs {
                 return Ok(());
             }
 
-            let (mut tx_request, _) = builder.build(&signer, send_tx.fee_token).await?;
+            // For access keys, pass the root account address so gas estimation and nonce lookup
+            // use the correct address. For regular transactions, pass the signer so EIP-7702
+            // authorization signing can work.
+            let (mut tx_request, _) = if access_key_config.is_some() {
+                builder.build(from, send_tx.fee_token).await?
+            } else {
+                builder.build(&signer, send_tx.fee_token).await?
+            };
 
-            // For access keys, set the key_id and override the from address
+            // For access keys, set the key_id
             if let Some(ref config) = access_key_config {
                 tx_request.key_id = Some(config.key_id);
-                tx_request.set_from(config.root_account);
             }
 
             if access_key_config.is_some() {

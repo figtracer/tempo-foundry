@@ -31,7 +31,7 @@ pub struct WalletOpts {
     pub raw: RawWalletOpts,
 
     /// Use an access key to sign on behalf of a root account.
-    /// 
+    ///
     /// The access key is a delegated key that can sign transactions for the root account.
     /// Requires --root-account to specify the account the key signs for.
     #[arg(
@@ -43,7 +43,7 @@ pub struct WalletOpts {
     pub access_key: Option<String>,
 
     /// The root account address that the access key signs on behalf of.
-    /// 
+    ///
     /// Required when using --access-key. This is the account that holds the funds
     /// and whose nonce is used for the transaction.
     #[arg(
@@ -171,7 +171,7 @@ pub struct AccessKeyConfig {
 
 impl WalletOpts {
     /// Returns the access key configuration if an access key is being used.
-    /// 
+    ///
     /// When using an access key:
     /// - Transactions should use `root_account` as the sender (`from`)
     /// - The `key_id` should be set on the transaction for Keychain signature wrapping
@@ -179,10 +179,7 @@ impl WalletOpts {
         if let (Some(access_key), Some(root_account)) = (&self.access_key, self.root_account) {
             // Derive the access key address from the private key
             if let Ok(key_id) = self.derive_access_key_address(access_key) {
-                return Some(AccessKeyConfig {
-                    root_account,
-                    key_id,
-                });
+                return Some(AccessKeyConfig { root_account, key_id });
             }
         }
         None
@@ -378,9 +375,10 @@ mod tests {
     async fn access_key_signer_works() {
         // Test private key (well-known test key, do not use in production!)
         let test_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-        let expected_address = Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266").unwrap();
+        let expected_address =
+            Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266").unwrap();
         let root_account = Address::from_str("1234567890123456789012345678901234567890").unwrap();
-        
+
         let wallet = WalletOpts {
             raw: RawWalletOpts::default(),
             from: None,
@@ -400,16 +398,16 @@ mod tests {
             browser_development: false,
             browser_disable_open: false,
         };
-        
+
         // Test that the signer is created with the access key
         let signer = wallet.signer().await.unwrap();
         assert_eq!(signer.address(), expected_address);
-        
+
         // Test access_key_config
         let config = wallet.access_key_config().unwrap();
         assert_eq!(config.root_account, root_account);
         assert_eq!(config.key_id, expected_address);
-        
+
         // Test is_access_key
         assert!(wallet.is_access_key());
     }

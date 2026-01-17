@@ -1,6 +1,7 @@
 use crate::tx::{self, CastTxBuilder};
+
 use alloy_ens::NameOrAddress;
-use alloy_network::{EthereumWallet, TransactionBuilder, eip2718::Encodable2718};
+use alloy_network::{EthereumWallet, TransactionBuilder, TxSigner, eip2718::Encodable2718};
 use alloy_primitives::{Address, hex};
 use alloy_provider::Provider;
 use alloy_signer::Signer;
@@ -155,15 +156,15 @@ impl MakeTxArgs {
         // Default to using the local signer.
         // Get the signer from the wallet, and fail if it can't be constructed.
         let signer = eth.wallet.signer().await?;
-        
+
         // Check if we're using an access key (signs on behalf of root account)
         let access_key_config = eth.wallet.access_key_config();
-        
+
         // For access keys, `from` is the root account; otherwise it's the signer address
         let from = if let Some(ref config) = access_key_config {
             config.root_account
         } else {
-            signer.address()
+            Signer::address(&signer)
         };
 
         // Only validate from address if not using access key
@@ -172,16 +173,26 @@ impl MakeTxArgs {
         }
 
         let (mut tx, _) = tx_builder.build(&signer, fee_token).await?;
-        
+
         // For access keys, set the key_id and override the from address
         if let Some(ref config) = access_key_config {
             tx.key_id = Some(config.key_id);
             tx.set_from(config.root_account);
         }
 
-        let tx = tx.inner.build(&EthereumWallet::new(signer)).await?;
+        let signed_tx = if access_key_config.is_some() {
+            // For access keys, build unsigned then sign directly to avoid
+            // EthereumWallet's address validation (which expects from == signer address)
+            let mut unsigned_tx = tx.inner.build_unsigned()?;
+            let sig = signer.sign_transaction(unsigned_tx.as_dyn_signable_mut()).await?;
+            let envelope = unsigned_tx.into_envelope(sig);
+            hex::encode(envelope.encoded_2718())
+        } else {
+            // Standard signing through EthereumWallet
+            let envelope = tx.inner.build(&EthereumWallet::new(signer)).await?;
+            hex::encode(envelope.encoded_2718())
+        };
 
-        let signed_tx = hex::encode(tx.encoded_2718());
         sh_println!("0x{signed_tx}")?;
 
         Ok(())

@@ -1,7 +1,7 @@
 use std::{str::FromStr, time::Duration};
 
 use alloy_ens::NameOrAddress;
-use alloy_network::{EthereumWallet, TransactionBuilder};
+use alloy_network::{EthereumWallet, TransactionBuilder, TxSigner, eip2718::Encodable2718};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_signer::Signer;
 use clap::Parser;
@@ -156,15 +156,15 @@ impl SendTxArgs {
         } else {
             // Retrieve the signer, and bail if it can't be constructed.
             let signer = send_tx.eth.wallet.signer().await?;
-            
+
             // Check if we're using an access key (signs on behalf of root account)
             let access_key_config = send_tx.eth.wallet.access_key_config();
-            
+
             // For access keys, `from` is the root account; otherwise it's the signer address
             let from = if let Some(ref config) = access_key_config {
                 config.root_account
             } else {
-                signer.address()
+                Signer::address(&signer)
             };
 
             // Only validate from address if not using access key
@@ -199,27 +199,62 @@ impl SendTxArgs {
             }
 
             let (mut tx_request, _) = builder.build(&signer, send_tx.fee_token).await?;
-            
+
             // For access keys, set the key_id and override the from address
             if let Some(ref config) = access_key_config {
                 tx_request.key_id = Some(config.key_id);
                 tx_request.set_from(config.root_account);
             }
 
-            let wallet = EthereumWallet::from(signer);
-            let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
-                .wallet(wallet)
-                .connect_provider(&provider);
+            if access_key_config.is_some() {
+                // For access keys, build unsigned, sign manually, and send raw
+                // to avoid EthereumWallet's address validation
+                let mut unsigned_tx = tx_request.inner.build_unsigned()?;
+                let sig = signer.sign_transaction(unsigned_tx.as_dyn_signable_mut()).await?;
+                let envelope = unsigned_tx.into_envelope(sig);
+                let raw_tx = envelope.encoded_2718();
 
-            cast_send(
-                provider,
-                tx_request.inner,
-                send_tx.cast_async,
-                send_tx.sync,
-                send_tx.confirmations,
-                timeout,
-            )
-            .await
+                let cast = CastTxSender::new(&provider);
+                if send_tx.sync {
+                    let receipt = cast.send_raw_sync(&raw_tx).await?;
+                    sh_println!("{receipt}")?;
+                } else {
+                    let pending_tx = provider.send_raw_transaction(&raw_tx).await?;
+                    let tx_hash = pending_tx.tx_hash();
+                    if send_tx.cast_async {
+                        sh_println!("{tx_hash:#x}")?;
+                    } else {
+                        let receipt = cast
+                            .receipt(
+                                format!("{tx_hash:#x}"),
+                                None,
+                                send_tx.confirmations,
+                                Some(timeout),
+                                false,
+                            )
+                            .await?;
+                        sh_println!("{receipt}")?;
+                    }
+                }
+            } else {
+                // Standard flow: use EthereumWallet for signing
+                let wallet = EthereumWallet::from(signer);
+                let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
+                    .wallet(wallet)
+                    .connect_provider(&provider);
+
+                cast_send(
+                    provider,
+                    tx_request.inner,
+                    send_tx.cast_async,
+                    send_tx.sync,
+                    send_tx.confirmations,
+                    timeout,
+                )
+                .await?;
+            }
+
+            Ok(())
         }
     }
 }

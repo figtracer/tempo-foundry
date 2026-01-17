@@ -155,11 +155,29 @@ impl MakeTxArgs {
         // Default to using the local signer.
         // Get the signer from the wallet, and fail if it can't be constructed.
         let signer = eth.wallet.signer().await?;
-        let from = signer.address();
+        
+        // Check if we're using an access key (signs on behalf of root account)
+        let access_key_config = eth.wallet.access_key_config();
+        
+        // For access keys, `from` is the root account; otherwise it's the signer address
+        let from = if let Some(ref config) = access_key_config {
+            config.root_account
+        } else {
+            signer.address()
+        };
 
-        tx::validate_from_address(eth.wallet.from, from)?;
+        // Only validate from address if not using access key
+        if access_key_config.is_none() {
+            tx::validate_from_address(eth.wallet.from, from)?;
+        }
 
-        let (tx, _) = tx_builder.build(&signer, fee_token).await?;
+        let (mut tx, _) = tx_builder.build(&signer, fee_token).await?;
+        
+        // For access keys, set the key_id and override the from address
+        if let Some(ref config) = access_key_config {
+            tx.key_id = Some(config.key_id);
+            tx.set_from(config.root_account);
+        }
 
         let tx = tx.inner.build(&EthereumWallet::new(signer)).await?;
 

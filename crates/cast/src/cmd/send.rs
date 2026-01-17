@@ -1,7 +1,7 @@
 use std::{str::FromStr, time::Duration};
 
 use alloy_ens::NameOrAddress;
-use alloy_network::EthereumWallet;
+use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_signer::Signer;
 use clap::Parser;
@@ -156,9 +156,21 @@ impl SendTxArgs {
         } else {
             // Retrieve the signer, and bail if it can't be constructed.
             let signer = send_tx.eth.wallet.signer().await?;
-            let from = signer.address();
+            
+            // Check if we're using an access key (signs on behalf of root account)
+            let access_key_config = send_tx.eth.wallet.access_key_config();
+            
+            // For access keys, `from` is the root account; otherwise it's the signer address
+            let from = if let Some(ref config) = access_key_config {
+                config.root_account
+            } else {
+                signer.address()
+            };
 
-            tx::validate_from_address(send_tx.eth.wallet.from, from)?;
+            // Only validate from address if not using access key
+            if access_key_config.is_none() {
+                tx::validate_from_address(send_tx.eth.wallet.from, from)?;
+            }
 
             // Browser wallets work differently as they sign and send the transaction in one step.
             if send_tx.eth.wallet.browser
@@ -186,7 +198,13 @@ impl SendTxArgs {
                 return Ok(());
             }
 
-            let (tx_request, _) = builder.build(&signer, send_tx.fee_token).await?;
+            let (mut tx_request, _) = builder.build(&signer, send_tx.fee_token).await?;
+            
+            // For access keys, set the key_id and override the from address
+            if let Some(ref config) = access_key_config {
+                tx_request.key_id = Some(config.key_id);
+                tx_request.set_from(config.root_account);
+            }
 
             let wallet = EthereumWallet::from(signer);
             let provider = ProviderBuilder::<_, _, TempoNetwork>::default()

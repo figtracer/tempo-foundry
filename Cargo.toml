@@ -373,11 +373,8 @@ tower-http = "0.6"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2"
-vergen = { version = "=9.0.6", default-features = false, features = ["build", "cargo"] }
-# Pin vergen-lib to 0.1.6 to avoid version conflict with vergen-git2
-# vergen 9.1.0 uses vergen-lib 9.1.0, but vergen-git2 1.0.x uses vergen-lib 0.1.x
-vergen-lib = "=0.1.6"
-vergen-git2 = "=1.0.5"
+vergen = { version = "=9.1.0", default-features = false, features = ["build", "cargo"] }
+vergen-git2 = "=9.1.0"
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
 path-slash = "0.2"
 jiff = { version = "0.2", default-features = false, features = [
@@ -390,13 +387,13 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "bcc66d7d0b6b9e21d257c1f8997ad278b4747f8f" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "bcc66d7d0b6b9e21d257c1f8997ad278b4747f8f" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "bcc66d7d0b6b9e21d257c1f8997ad278b4747f8f" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "bcc66d7d0b6b9e21d257c1f8997ad278b4747f8f" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "bcc66d7d0b6b9e21d257c1f8997ad278b4747f8f" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "bcc66d7d0b6b9e21d257c1f8997ad278b4747f8f" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "bcc66d7d0b6b9e21d257c1f8997ad278b4747f8f" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 

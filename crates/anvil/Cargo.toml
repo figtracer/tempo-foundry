@@ -30,7 +30,13 @@ foundry-evm.workspace = true
 foundry-evm-networks.workspace = true
 foundry-primitives.workspace = true
 
+# tempo
+tempo-chainspec.workspace = true
+tempo-evm.workspace = true
+tempo-revm.workspace = true
+
 # alloy
+alloy-hardforks.workspace = true
 alloy-evm = { workspace = true, features = ["call-util"] }
 alloy-op-evm.workspace = true
 alloy-primitives = { workspace = true, features = ["serde"] }

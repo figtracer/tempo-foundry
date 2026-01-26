@@ -97,6 +97,7 @@ use foundry_evm::{
     constants::DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE,
     core::{either_evm::EitherEvm, precompiles::EC_RECOVER},
     decode::RevertDecoder,
+    hardforks::spec_id_from_tempo_hardfork,
     inspectors::AccessListInspector,
     traces::{
         CallTraceDecoder, FourByteInspector, GethTraceBuilder, TracingInspector,
@@ -104,13 +105,16 @@ use foundry_evm::{
     },
     utils::{get_blob_base_fee_update_fraction, get_blob_base_fee_update_fraction_by_spec_id},
 };
+use tempo_chainspec::hardfork::TempoHardfork;
+use tempo_evm::TempoBlockEnv;
 use foundry_primitives::{
-    FoundryReceiptEnvelope, FoundryTransactionRequest, FoundryTxEnvelope, FoundryTxReceipt,
-    get_deposit_tx_parts,
+    FoundryReceiptEnvelope, FoundryTempoTxEnv, FoundryTransactionRequest, FoundryTxEnvelope,
+    FoundryTxReceipt, get_deposit_tx_parts,
 };
 use futures::channel::mpsc::{UnboundedSender, unbounded};
 use op_alloy_consensus::DEPOSIT_TX_TYPE_ID;
 use op_revm::{OpContext, OpHaltReason, OpTransaction};
+use tempo_revm::TempoTxEnv;
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use revm::{
     DatabaseCommit, Inspector,
@@ -277,7 +281,7 @@ impl Backend {
             let env = env.read();
             Blockchain::new(
                 &env,
-                env.evm_env.cfg_env.spec,
+                spec_id_from_tempo_hardfork(env.evm_env.cfg_env.spec),
                 fees.is_eip1559().then(|| fees.base_fee()),
                 genesis.timestamp,
                 genesis.number,
@@ -555,16 +559,19 @@ impl Backend {
                     let mut env = self.env.write();
 
                     env.evm_env.cfg_env.chain_id = fork.chain_id();
-                    env.evm_env.block_env = BlockEnv {
-                        number: U256::from(fork_block_number),
-                        timestamp: U256::from(fork_block.header.timestamp),
-                        gas_limit,
-                        difficulty: fork_block.header.difficulty,
-                        prevrandao: Some(fork_block.header.mix_hash.unwrap_or_default()),
-                        // Keep previous `beneficiary` and `basefee` value
-                        beneficiary: env.evm_env.block_env.beneficiary,
-                        basefee: env.evm_env.block_env.basefee,
-                        ..env.evm_env.block_env.clone()
+                    env.evm_env.block_env = TempoBlockEnv {
+                        inner: BlockEnv {
+                            number: U256::from(fork_block_number),
+                            timestamp: U256::from(fork_block.header.timestamp),
+                            gas_limit,
+                            difficulty: fork_block.header.difficulty,
+                            prevrandao: Some(fork_block.header.mix_hash.unwrap_or_default()),
+                            // Keep previous `beneficiary` and `basefee` value
+                            beneficiary: env.evm_env.block_env.beneficiary,
+                            basefee: env.evm_env.block_env.basefee,
+                            ..env.evm_env.block_env.inner.clone()
+                        },
+                        timestamp_millis_part: 0,
                     };
 
                     // this is the base fee of the current block, but we need the base fee of
@@ -773,34 +780,39 @@ impl Backend {
         self.db.write().await.set_storage_at(address, slot.into(), val)
     }
 
-    /// Returns the configured specid
-    pub fn spec_id(&self) -> SpecId {
+    /// Returns the configured hardfork
+    pub fn hardfork(&self) -> TempoHardfork {
         self.env.read().evm_env.cfg_env.spec
     }
 
-    /// Returns true for post London
+    /// Returns the configured specid (converted from TempoHardfork)
+    pub fn spec_id(&self) -> SpecId {
+        spec_id_from_tempo_hardfork(self.hardfork())
+    }
+
+    /// Returns true for post London (all Tempo hardforks are post-London)
     pub fn is_eip1559(&self) -> bool {
-        (self.spec_id() as u8) >= (SpecId::LONDON as u8)
+        true // Tempo hardforks are all post-OSAKA which is post-London
     }
 
-    /// Returns true for post Merge
+    /// Returns true for post Merge (all Tempo hardforks are post-Merge)
     pub fn is_eip3675(&self) -> bool {
-        (self.spec_id() as u8) >= (SpecId::MERGE as u8)
+        true // Tempo hardforks are all post-OSAKA which is post-Merge
     }
 
-    /// Returns true for post Berlin
+    /// Returns true for post Berlin (all Tempo hardforks are post-Berlin)
     pub fn is_eip2930(&self) -> bool {
-        (self.spec_id() as u8) >= (SpecId::BERLIN as u8)
+        true // Tempo hardforks are all post-OSAKA which is post-Berlin
     }
 
-    /// Returns true for post Cancun
+    /// Returns true for post Cancun (all Tempo hardforks are post-Cancun)
     pub fn is_eip4844(&self) -> bool {
-        (self.spec_id() as u8) >= (SpecId::CANCUN as u8)
+        true // Tempo hardforks are all post-OSAKA which is post-Cancun
     }
 
-    /// Returns true for post Prague
+    /// Returns true for post Prague (all Tempo hardforks are post-Prague)
     pub fn is_eip7702(&self) -> bool {
-        (self.spec_id() as u8) >= (SpecId::PRAGUE as u8)
+        true // Tempo hardforks are all post-OSAKA which is post-Prague
     }
 
     /// Returns true if op-stack deposits are active
@@ -810,7 +822,7 @@ impl Backend {
 
     /// Returns the precompiles for the current spec.
     pub fn precompiles(&self) -> BTreeMap<String, Address> {
-        let spec_id = self.env.read().evm_env.cfg_env.spec;
+        let spec_id = self.spec_id();
         let precompiles = Precompiles::new(PrecompileSpecId::from_spec_id(spec_id));
 
         let mut precompiles_map = BTreeMap::<String, Address>::default();
@@ -834,32 +846,17 @@ impl Backend {
     pub fn system_contracts(&self) -> BTreeMap<SystemContract, Address> {
         let mut system_contracts = BTreeMap::<SystemContract, Address>::default();
 
-        let spec_id = self.env.read().evm_env.cfg_env.spec;
-
-        if spec_id >= SpecId::CANCUN {
-            system_contracts.extend(SystemContract::cancun());
-        }
-
-        if spec_id >= SpecId::PRAGUE {
-            system_contracts.extend(SystemContract::prague(None));
-        }
+        // Tempo hardforks are all post-OSAKA, so both CANCUN and PRAGUE system contracts apply
+        system_contracts.extend(SystemContract::cancun());
+        system_contracts.extend(SystemContract::prague(None));
 
         system_contracts
     }
 
     /// Returns [`BlobParams`] corresponding to the current spec.
     pub fn blob_params(&self) -> BlobParams {
-        let spec_id = self.env.read().evm_env.cfg_env.spec;
-
-        if spec_id >= SpecId::OSAKA {
-            return BlobParams::osaka();
-        }
-
-        if spec_id >= SpecId::PRAGUE {
-            return BlobParams::prague();
-        }
-
-        BlobParams::cancun()
+        // Tempo hardforks are all post-OSAKA
+        BlobParams::osaka()
     }
 
     /// Returns an error if EIP1559 is not active (pre Berlin)
@@ -989,17 +986,20 @@ impl Backend {
             self.time.reset(reset_time);
 
             let mut env = self.env.write();
-            env.evm_env.block_env = BlockEnv {
-                number: U256::from(num),
-                timestamp: U256::from(block.header.timestamp),
-                difficulty: block.header.difficulty,
-                // ensures prevrandao is set
-                prevrandao: Some(block.header.mix_hash.unwrap_or_default()),
-                gas_limit: block.header.gas_limit,
-                // Keep previous `beneficiary` and `basefee` value
-                beneficiary: env.evm_env.block_env.beneficiary,
-                basefee: env.evm_env.block_env.basefee,
-                ..Default::default()
+            env.evm_env.block_env = TempoBlockEnv {
+                inner: BlockEnv {
+                    number: U256::from(num),
+                    timestamp: U256::from(block.header.timestamp),
+                    difficulty: block.header.difficulty,
+                    // ensures prevrandao is set
+                    prevrandao: Some(block.header.mix_hash.unwrap_or_default()),
+                    gas_limit: block.header.gas_limit,
+                    // Keep previous `beneficiary` and `basefee` value
+                    beneficiary: env.evm_env.block_env.beneficiary,
+                    basefee: env.evm_env.block_env.basefee,
+                    ..Default::default()
+                },
+                timestamp_millis_part: 0,
             }
         }
         Ok(self.db.write().await.revert_state(id, RevertStateSnapshotAction::RevertRemove))
@@ -1014,7 +1014,7 @@ impl Backend {
         &self,
         preserve_historical_states: bool,
     ) -> Result<SerializableState, BlockchainError> {
-        let at = self.env.read().evm_env.block_env.clone();
+        let at = self.env.read().evm_env.block_env.inner.clone();
         let best_number = self.blockchain.storage.read().best_number;
         let blocks = self.blockchain.storage.read().serialized_blocks();
         let transactions = self.blockchain.storage.read().serialized_transactions();
@@ -1057,13 +1057,15 @@ impl Backend {
         self.blockchain.storage.write().load_transactions(state.transactions.clone());
         // reset the block env
         if let Some(block) = state.block.clone() {
-            self.env.write().evm_env.block_env = block.clone();
+            let best_number = state.best_block_number.unwrap_or(block.number.saturating_to());
+            self.env.write().evm_env.block_env = TempoBlockEnv {
+                inner: block,
+                timestamp_millis_part: 0,
+            };
 
             // Set the current best block number.
             // Defaults to block number for compatibility with existing state files.
             let fork_num_and_hash = self.get_fork().map(|f| (f.block_number(), f.block_hash()));
-
-            let best_number = state.best_block_number.unwrap_or(block.number.saturating_to());
             if let Some((number, hash)) = fork_num_and_hash {
                 trace!(target: "backend", state_block_number=?best_number, fork_block_number=?number);
                 // If the state.block_number is greater than the fork block number, set best number
@@ -1220,10 +1222,12 @@ impl Backend {
             *tx.pending_transaction.sender(),
         );
 
-        if env.networks.is_optimism() {
-            env.tx.enveloped_tx =
-                Some(alloy_rlp::encode(tx.pending_transaction.transaction.as_ref()).into());
-        }
+        // OP-stack specific: encode transaction envelope for L1 fee calculation
+        // TODO: This is disabled for Tempo. Re-enable when OP support is needed.
+        // if env.networks.is_optimism() {
+        //     env.tx.enveloped_tx =
+        //         Some(alloy_rlp::encode(tx.pending_transaction.transaction.as_ref()).into());
+        // }
 
         let db = self.db.read().await;
         let mut inspector = self.build_inspector();
@@ -1485,7 +1489,7 @@ impl Backend {
 
         self.fees.set_blob_excess_gas_and_price(BlobExcessGasAndPrice::new(
             next_block_excess_blob_gas,
-            get_blob_base_fee_update_fraction_by_spec_id(*self.env.read().evm_env.spec_id()),
+            get_blob_base_fee_update_fraction_by_spec_id(self.spec_id()),
         ));
 
         // notify all listeners
@@ -1535,7 +1539,7 @@ impl Backend {
         &self,
         request: WithOtherFields<TransactionRequest>,
         fee_details: FeeDetails,
-        block_env: BlockEnv,
+        block_env: TempoBlockEnv,
     ) -> Env {
         let tx_type = request.minimal_tx_type() as u8;
 
@@ -1555,7 +1559,7 @@ impl Backend {
                     chain_id,
                     .. // Rest of the gas fees related fields are taken from `fee_details`
                 },
-            other,
+            other: _,
         } = request;
 
         let FeeDetails {
@@ -1616,22 +1620,22 @@ impl Backend {
             ..Default::default()
         };
         base.set_signed_authorization(authorization_list.unwrap_or_default());
-        env.tx = OpTransaction { base, ..Default::default() };
+        env.tx = FoundryTempoTxEnv(TempoTxEnv { inner: base, ..Default::default() });
 
         if let Some(nonce) = nonce {
-            env.tx.base.nonce = nonce;
+            env.tx.0.inner.nonce = nonce;
         }
 
-        if env.evm_env.block_env.basefee == 0 {
+        if env.evm_env.block_env.inner.basefee == 0 {
             // this is an edge case because the evm fails if `tx.effective_gas_price < base_fee`
             // 0 is only possible if it's manually set
             env.evm_env.cfg_env.disable_base_fee = true;
         }
 
-        // Deposit transaction?
-        if let Ok(deposit) = get_deposit_tx_parts(&other) {
-            env.tx.deposit = deposit;
-        }
+        // TODO: OP-stack deposit transactions not supported in Tempo mode
+        // if let Ok(deposit) = get_deposit_tx_parts(&other) {
+        //     env.tx.deposit = deposit;
+        // }
 
         env
     }
@@ -1873,7 +1877,7 @@ impl Backend {
         state: &dyn DatabaseRef,
         request: WithOtherFields<TransactionRequest>,
         fee_details: FeeDetails,
-        block_env: BlockEnv,
+        block_env: TempoBlockEnv,
     ) -> Result<(InstructionResult, Option<Output>, u128, State), BlockchainError> {
         let mut inspector = self.build_inspector();
 
@@ -1981,7 +1985,8 @@ impl Backend {
                         GethDebugBuiltInTracerType::NoopTracer => Ok(NoopFrame::default().into()),
                         GethDebugBuiltInTracerType::FourByteTracer
                         | GethDebugBuiltInTracerType::MuxTracer
-                        | GethDebugBuiltInTracerType::FlatCallTracer => {
+                        | GethDebugBuiltInTracerType::FlatCallTracer
+                        | GethDebugBuiltInTracerType::Erc7562Tracer => {
                             Err(RpcError::invalid_params("unsupported tracer type").into())
                         }
                     },
@@ -2053,7 +2058,7 @@ impl Backend {
         state: &dyn DatabaseRef,
         request: WithOtherFields<TransactionRequest>,
         fee_details: FeeDetails,
-        block_env: BlockEnv,
+        block_env: TempoBlockEnv,
     ) -> Result<(InstructionResult, Option<Output>, u64, AccessList), BlockchainError> {
         let mut inspector =
             AccessListInspector::new(request.access_list.clone().unwrap_or_default());
@@ -2452,22 +2457,25 @@ impl Backend {
         f: F,
     ) -> Result<T, BlockchainError>
     where
-        F: FnOnce(Box<dyn MaybeFullDatabase + '_>, BlockEnv) -> T,
+        F: FnOnce(Box<dyn MaybeFullDatabase + '_>, TempoBlockEnv) -> T,
     {
         let block_number = match block_request {
             Some(BlockRequest::Pending(pool_transactions)) => {
                 let result = self
                     .with_pending_block(pool_transactions, |state, block| {
                         let block = block.block;
-                        let block = BlockEnv {
-                            number: U256::from(block.header.number),
-                            beneficiary: block.header.beneficiary,
-                            timestamp: U256::from(block.header.timestamp),
-                            difficulty: block.header.difficulty,
-                            prevrandao: Some(block.header.mix_hash),
-                            basefee: block.header.base_fee_per_gas.unwrap_or_default(),
-                            gas_limit: block.header.gas_limit,
-                            ..Default::default()
+                        let block = TempoBlockEnv {
+                            inner: BlockEnv {
+                                number: U256::from(block.header.number),
+                                beneficiary: block.header.beneficiary,
+                                timestamp: U256::from(block.header.timestamp),
+                                difficulty: block.header.difficulty,
+                                prevrandao: Some(block.header.mix_hash),
+                                basefee: block.header.base_fee_per_gas.unwrap_or_default(),
+                                gas_limit: block.header.gas_limit,
+                                ..Default::default()
+                            },
+                            timestamp_millis_part: 0,
                         };
                         f(state, block)
                     })
@@ -2739,15 +2747,18 @@ impl Backend {
             // configure the blockenv for the block of the transaction
             let mut env = self.env.read().clone();
 
-            env.evm_env.block_env = BlockEnv {
-                number: U256::from(block.header.number),
-                beneficiary: block.header.beneficiary,
-                timestamp: U256::from(block.header.timestamp),
-                difficulty: block.header.difficulty,
-                prevrandao: Some(block.header.mix_hash),
-                basefee: block.header.base_fee_per_gas.unwrap_or_default(),
-                gas_limit: block.header.gas_limit,
-                ..Default::default()
+            env.evm_env.block_env = TempoBlockEnv {
+                inner: BlockEnv {
+                    number: U256::from(block.header.number),
+                    beneficiary: block.header.beneficiary,
+                    timestamp: U256::from(block.header.timestamp),
+                    difficulty: block.header.difficulty,
+                    prevrandao: Some(block.header.mix_hash),
+                    basefee: block.header.base_fee_per_gas.unwrap_or_default(),
+                    gas_limit: block.header.gas_limit,
+                    ..Default::default()
+                },
+                timestamp_millis_part: 0,
             };
 
             let executor = TransactionExecutor {
@@ -2951,7 +2962,8 @@ impl Backend {
                     }
                     GethDebugBuiltInTracerType::NoopTracer
                     | GethDebugBuiltInTracerType::MuxTracer
-                    | GethDebugBuiltInTracerType::FlatCallTracer => {}
+                    | GethDebugBuiltInTracerType::FlatCallTracer
+                    | GethDebugBuiltInTracerType::Erc7562Tracer => {}
                 },
                 GethDebugTracerType::JsTracer(_code) => {}
             }
@@ -3268,7 +3280,7 @@ impl Backend {
             && let Ok(typed_tx) = FoundryTxEnvelope::try_from(tx)
             && let Some(sidecar) = typed_tx.sidecar()
         {
-            return Ok(Some(sidecar.sidecar.blobs.clone()));
+            return Ok(Some(sidecar.sidecar.blobs().to_vec()));
         }
 
         Ok(None)
@@ -3286,7 +3298,7 @@ impl Backend {
                 .iter()
                 .filter_map(|tx| tx.as_ref().sidecar())
                 .flat_map(|sidecar| {
-                    sidecar.sidecar.blobs.iter().zip(sidecar.sidecar.commitments.iter())
+                    sidecar.sidecar.blobs().iter().zip(sidecar.sidecar.commitments().iter())
                 })
                 .filter(|(_, commitment)| {
                     // Filter blobs by versioned_hashes if provided
@@ -3310,9 +3322,11 @@ impl Backend {
                     typed_tx_result.ok()?.sidecar().map(|sidecar| sidecar.sidecar().clone())
                 })
                 .fold(BlobTransactionSidecar::default(), |mut acc, sidecar| {
-                    acc.blobs.extend(sidecar.blobs);
-                    acc.commitments.extend(sidecar.commitments);
-                    acc.proofs.extend(sidecar.proofs);
+                    if let Some(eip4844_sidecar) = sidecar.as_eip4844() {
+                        acc.blobs.extend(eip4844_sidecar.blobs.iter().copied());
+                        acc.commitments.extend(eip4844_sidecar.commitments.iter().copied());
+                        acc.proofs.extend(eip4844_sidecar.proofs.iter().copied());
+                    }
                     acc
                 });
             Ok(Some(sidecar))
@@ -3330,10 +3344,10 @@ impl Backend {
                     for versioned_hash in sidecar.sidecar.versioned_hashes() {
                         if versioned_hash == hash
                             && let Some(index) =
-                                sidecar.sidecar.commitments.iter().position(|commitment| {
+                                sidecar.sidecar.commitments().iter().position(|commitment| {
                                     kzg_to_versioned_hash(commitment.as_slice()) == *hash
                                 })
-                            && let Some(blob) = sidecar.sidecar.blobs.get(index)
+                            && let Some(blob) = sidecar.sidecar.blobs().get(index)
                         {
                             return Ok(Some(*blob));
                         }
@@ -3518,17 +3532,20 @@ impl Backend {
 
 fn get_block_env<F, T>(state: &StateDb, block_number: u64, block: AnyRpcBlock, f: F) -> T
 where
-    F: FnOnce(Box<dyn MaybeFullDatabase + '_>, BlockEnv) -> T,
+    F: FnOnce(Box<dyn MaybeFullDatabase + '_>, TempoBlockEnv) -> T,
 {
-    let block = BlockEnv {
-        number: U256::from(block_number),
-        beneficiary: block.header.beneficiary,
-        timestamp: U256::from(block.header.timestamp),
-        difficulty: block.header.difficulty,
-        prevrandao: block.header.mix_hash,
-        basefee: block.header.base_fee_per_gas.unwrap_or_default(),
-        gas_limit: block.header.gas_limit,
-        ..Default::default()
+    let block = TempoBlockEnv {
+        inner: BlockEnv {
+            number: U256::from(block_number),
+            beneficiary: block.header.beneficiary,
+            timestamp: U256::from(block.header.timestamp),
+            difficulty: block.header.difficulty,
+            prevrandao: block.header.mix_hash,
+            basefee: block.header.base_fee_per_gas.unwrap_or_default(),
+            gas_limit: block.header.gas_limit,
+            ..Default::default()
+        },
+        timestamp_millis_part: 0,
     };
     f(Box::new(state), block)
 }
@@ -3575,9 +3592,8 @@ impl TransactionValidator for Backend {
             if chain_id.to::<u64>() != tx_chain_id {
                 if let FoundryTxEnvelope::Legacy(tx) = tx.as_ref() {
                     // <https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md>
-                    if env.evm_env.cfg_env.spec >= SpecId::SPURIOUS_DRAGON
-                        && tx.chain_id().is_none()
-                    {
+                    // Tempo hardforks are all post-SPURIOUS_DRAGON
+                    if tx.chain_id().is_none() {
                         warn!(target: "backend", ?chain_id, ?tx_chain_id, "incompatible EIP155-based V");
                         return Err(InvalidTransactionError::IncompatibleEIP155);
                     }
@@ -3596,8 +3612,8 @@ impl TransactionValidator for Backend {
             return Err(InvalidTransactionError::NonceTooLow);
         }
 
-        // EIP-4844 structural validation
-        if env.evm_env.cfg_env.spec >= SpecId::CANCUN && tx.is_eip4844() {
+        // EIP-4844 structural validation (Tempo hardforks are all post-CANCUN)
+        if tx.is_eip4844() {
             // Heavy (blob validation) checks
             let blob_tx = match tx.as_ref() {
                 FoundryTxEnvelope::Eip4844(tx) => tx.tx(),
@@ -3653,25 +3669,22 @@ impl TransactionValidator for Backend {
                 }));
             }
 
-            // EIP-1559 fee validation (London hard fork and later).
-            if env.evm_env.cfg_env.spec >= SpecId::LONDON {
-                if tx.max_fee_per_gas() < env.evm_env.block_env.basefee.into() && !is_deposit_tx {
-                    warn!(target: "backend", "max fee per gas={}, too low, block basefee={}", tx.max_fee_per_gas(), env.evm_env.block_env.basefee);
-                    return Err(InvalidTransactionError::FeeCapTooLow);
-                }
-
-                if let (Some(max_priority_fee_per_gas), max_fee_per_gas) =
-                    (tx.as_ref().max_priority_fee_per_gas(), tx.as_ref().max_fee_per_gas())
-                    && max_priority_fee_per_gas > max_fee_per_gas
-                {
-                    warn!(target: "backend", "max priority fee per gas={}, too high, max fee per gas={}", max_priority_fee_per_gas, max_fee_per_gas);
-                    return Err(InvalidTransactionError::TipAboveFeeCap);
-                }
+            // EIP-1559 fee validation (Tempo hardforks are all post-LONDON)
+            if tx.max_fee_per_gas() < env.evm_env.block_env.basefee.into() && !is_deposit_tx {
+                warn!(target: "backend", "max fee per gas={}, too low, block basefee={}", tx.max_fee_per_gas(), env.evm_env.block_env.basefee);
+                return Err(InvalidTransactionError::FeeCapTooLow);
             }
 
-            // EIP-4844 blob fee validation
-            if env.evm_env.cfg_env.spec >= SpecId::CANCUN
-                && tx.is_eip4844()
+            if let (Some(max_priority_fee_per_gas), max_fee_per_gas) =
+                (tx.as_ref().max_priority_fee_per_gas(), tx.as_ref().max_fee_per_gas())
+                && max_priority_fee_per_gas > max_fee_per_gas
+            {
+                warn!(target: "backend", "max priority fee per gas={}, too high, max fee per gas={}", max_priority_fee_per_gas, max_fee_per_gas);
+                return Err(InvalidTransactionError::TipAboveFeeCap);
+            }
+
+            // EIP-4844 blob fee validation (Tempo hardforks are all post-CANCUN)
+            if tx.is_eip4844()
                 && let Some(max_fee_per_blob_gas) = tx.max_fee_per_blob_gas()
                 && let Some(blob_gas_and_price) = &env.evm_env.block_env.blob_excess_gas_and_price
                 && max_fee_per_blob_gas < blob_gas_and_price.blob_gasprice

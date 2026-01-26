@@ -77,6 +77,7 @@ use anvil_core::{
 use anvil_rpc::{error::RpcError, response::ResponseResult};
 use foundry_common::provider::ProviderBuilder;
 use foundry_evm::decode::RevertDecoder;
+
 use foundry_primitives::{
     FoundryTransactionRequest, FoundryTxEnvelope, FoundryTxReceipt, FoundryTxType, FoundryTypedTx,
 };
@@ -92,6 +93,7 @@ use revm::{
     interpreter::{InstructionResult, return_ok, return_revert},
     primitives::eip7702::PER_EMPTY_ACCOUNT_COST,
 };
+use tempo_evm::TempoBlockEnv;
 use std::{sync::Arc, time::Duration};
 use tokio::{
     sync::mpsc::{UnboundedReceiver, unbounded_channel},
@@ -2452,7 +2454,7 @@ impl EthApi {
         let env = self.backend.env().read();
         let fork_config = self.backend.get_fork();
         let tx_order = self.transaction_order.read();
-        let hard_fork: &str = env.evm_env.cfg_env.spec.into();
+        let hard_fork: &str = env.evm_env.cfg_env.spec.name();
 
         Ok(NodeInfo {
             current_block_number: self.backend.best_number(),
@@ -3091,7 +3093,7 @@ impl EthApi {
         &self,
         mut request: WithOtherFields<TransactionRequest>,
         state: &dyn DatabaseRef,
-        block_env: BlockEnv,
+        block_env: TempoBlockEnv,
     ) -> Result<u128> {
         // If the request is a simple native token transfer we can optimize
         // We assume it's a transfer if we have no input data.

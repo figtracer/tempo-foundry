@@ -40,14 +40,13 @@ use foundry_evm::{
     backend::{BlockchainDb, BlockchainDbMeta, SharedBackend},
     constants::DEFAULT_CREATE2_DEPLOYER,
     core::AsEnvMut,
-    hardfork::{
+    hardforks::{
         FoundryHardfork, OpHardfork, ethereum_hardfork_from_block_tag,
-        spec_id_from_ethereum_hardfork,
+        spec_id_from_ethereum_hardfork, spec_id_from_tempo_hardfork,
     },
     utils::{apply_chain_and_block_specific_env_changes, get_blob_base_fee_update_fraction},
 };
 use itertools::Itertools;
-use op_revm::OpTransaction;
 use parking_lot::RwLock;
 use rand_08::thread_rng;
 use revm::{
@@ -55,6 +54,8 @@ use revm::{
     context_interface::block::BlobExcessGasAndPrice,
     primitives::hardfork::SpecId,
 };
+use tempo_evm::TempoBlockEnv;
+use tempo_revm::TempoTxEnv;
 use serde_json::{Value, json};
 use std::{
     fmt::Write as FmtWrite,
@@ -1077,22 +1078,18 @@ impl NodeConfig {
             cfg.memory_limit = value;
         }
 
-        let spec_id = cfg.spec;
-        let mut env = Env::new(
-            EvmEnv::new(
-                cfg,
-                BlockEnv {
-                    gas_limit: self.gas_limit(),
-                    basefee: self.get_base_fee(),
-                    ..Default::default()
-                },
-            ),
-            OpTransaction {
-                base: TxEnv { chain_id: Some(self.get_chain_id()), ..Default::default() },
-                ..Default::default()
-            },
-            self.networks,
-        );
+        let spec_id = spec_id_from_tempo_hardfork(cfg.spec);
+        let block_env = {
+            let mut block = TempoBlockEnv::default();
+            block.inner.gas_limit = self.gas_limit();
+            block.inner.basefee = self.get_base_fee();
+            block
+        };
+        let tx_env = TempoTxEnv {
+            inner: TxEnv { chain_id: Some(self.get_chain_id()), ..Default::default() },
+            ..Default::default()
+        };
+        let mut env = Env::new(EvmEnv::new(cfg, block_env), tx_env, self.networks);
 
         let fees = FeeManager::new(
             spec_id,
@@ -1238,7 +1235,7 @@ impl NodeConfig {
                     let hardfork: EthereumHardfork =
                         ethereum_hardfork_from_block_tag(fork_block_number);
 
-                    env.evm_env.cfg_env.spec = spec_id_from_ethereum_hardfork(hardfork);
+                    env.evm_env.cfg_env.spec = spec_id_from_ethereum_hardfork(hardfork).into();
                     self.hardfork = Some(FoundryHardfork::Ethereum(hardfork));
                 }
                 Some(U256::from(chain_id))
@@ -1282,7 +1279,7 @@ latest block number: {latest_block}"
         let gas_limit = self.fork_gas_limit(&block);
         self.gas_limit = Some(gas_limit);
 
-        env.evm_env.block_env = BlockEnv {
+        env.evm_env.block_env.inner = BlockEnv {
             number: U256::from(fork_block_number),
             timestamp: U256::from(block.header.timestamp),
             difficulty: block.header.difficulty,
@@ -1290,8 +1287,8 @@ latest block number: {latest_block}"
             prevrandao: Some(block.header.mix_hash.unwrap_or_default()),
             gas_limit,
             // Keep previous `coinbase` and `basefee` value
-            beneficiary: env.evm_env.block_env.beneficiary,
-            basefee: env.evm_env.block_env.basefee,
+            beneficiary: env.evm_env.block_env.inner.beneficiary,
+            basefee: env.evm_env.block_env.inner.basefee,
             ..Default::default()
         };
 
@@ -1299,7 +1296,7 @@ latest block number: {latest_block}"
         if self.base_fee.is_none() {
             if let Some(base_fee) = block.header.base_fee_per_gas {
                 self.base_fee = Some(base_fee);
-                env.evm_env.block_env.basefee = base_fee;
+                env.evm_env.block_env.inner.basefee = base_fee;
                 // this is the base fee of the current block, but we need the base fee of
                 // the next block
                 let next_block_base_fee = fees.get_next_block_base_fee_per_gas(
@@ -1360,7 +1357,7 @@ latest block number: {latest_block}"
             // need to update the dev signers and env with the chain id
             self.set_chain_id(Some(chain_id));
             env.evm_env.cfg_env.chain_id = chain_id;
-            env.tx.base.chain_id = chain_id.into();
+            env.tx.inner.chain_id = chain_id.into();
             chain_id
         };
         let override_chain_id = self.chain_id;
@@ -1371,7 +1368,7 @@ latest block number: {latest_block}"
             self.networks,
         );
 
-        let meta = BlockchainDbMeta::new(env.evm_env.block_env.clone(), eth_rpc_url.clone());
+        let meta = BlockchainDbMeta::new(env.evm_env.block_env.inner.clone(), eth_rpc_url.clone());
         let block_chain_db = if self.fork_chain_id.is_some() {
             BlockchainDb::new_skip_check(meta, self.block_cache_path(fork_block_number))
         } else {

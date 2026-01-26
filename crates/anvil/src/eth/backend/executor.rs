@@ -15,13 +15,9 @@ use crate::{
 };
 use alloy_consensus::{
     Header, Receipt, ReceiptWithBloom, Transaction, constants::EMPTY_WITHDRAWALS,
-    proofs::calculate_receipt_root, transaction::Either,
+    proofs::calculate_receipt_root,
 };
-use alloy_eips::{
-    eip7685::EMPTY_REQUESTS_HASH,
-    eip7702::{RecoveredAuthority, RecoveredAuthorization},
-    eip7840::BlobParams,
-};
+use alloy_eips::{eip7685::EMPTY_REQUESTS_HASH, eip7840::BlobParams};
 use alloy_evm::{
     EthEvmFactory, Evm, EvmEnv, EvmFactory, FromRecoveredTx,
     eth::EthEvmContext,
@@ -29,6 +25,8 @@ use alloy_evm::{
 };
 use alloy_op_evm::OpEvmFactory;
 use alloy_primitives::{B256, Bloom, BloomInput, Log};
+use tempo_chainspec::hardfork::TempoHardfork;
+use tempo_evm::TempoBlockEnv;
 use anvil_core::eth::{
     block::{BlockInfo, create_block},
     transaction::{PendingTransaction, TransactionInfo},
@@ -39,8 +37,9 @@ use foundry_evm::{
     traces::{CallTraceDecoder, CallTraceNode},
 };
 use foundry_evm_networks::NetworkConfigs;
-use foundry_primitives::{FoundryReceiptEnvelope, FoundryTxEnvelope};
-use op_revm::{OpContext, OpTransaction};
+use foundry_primitives::{FoundryReceiptEnvelope, FoundryTempoTxEnv, FoundryTxEnvelope};
+use op_revm::OpContext;
+use tempo_revm::TempoTxEnv;
 use revm::{
     Database, Inspector,
     context::{Block as RevmBlock, Cfg, TxEnv},
@@ -121,7 +120,7 @@ pub struct TransactionExecutor<'a, Db: ?Sized, V: TransactionValidator> {
     pub validator: &'a V,
     /// all pending transactions
     pub pending: std::vec::IntoIter<Arc<PoolTransaction>>,
-    pub evm_env: EvmEnv,
+    pub evm_env: EvmEnv<TempoHardfork, TempoBlockEnv>,
     pub parent_hash: B256,
     /// Cumulative gas used by all executed transactions
     pub gas_used: u64,
@@ -156,18 +155,14 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
         let mix_hash = self.evm_env.block_env().prevrandao;
         let beneficiary = self.evm_env.block_env().beneficiary;
         let timestamp = self.evm_env.block_env().timestamp;
-        let base_fee = if self.evm_env.cfg_env().spec.is_enabled_in(SpecId::LONDON) {
-            Some(self.evm_env.block_env().basefee)
-        } else {
-            None
-        };
+        // Tempo hardforks are all post-OSAKA, so all these features are enabled
+        let base_fee = Some(self.evm_env.block_env().basefee);
 
-        let is_shanghai = self.evm_env.cfg_env().spec >= SpecId::SHANGHAI;
-        let is_cancun = self.evm_env.cfg_env().spec >= SpecId::CANCUN;
-        let is_prague = self.evm_env.cfg_env().spec >= SpecId::PRAGUE;
-        let excess_blob_gas =
-            if is_cancun { self.evm_env.block_env().blob_excess_gas() } else { None };
-        let mut cumulative_blob_gas_used = if is_cancun { Some(0u64) } else { None };
+        let is_shanghai = true;
+        let is_cancun = true;
+        let is_prague = true;
+        let excess_blob_gas = self.evm_env.block_env().blob_excess_gas();
+        let mut cumulative_blob_gas_used = Some(0u64);
 
         for tx in self.into_iter() {
             let tx = match tx {
@@ -270,43 +265,23 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
     }
 
     fn env_for(&self, tx: &PendingTransaction) -> Env {
-        let mut tx_env: OpTransaction<TxEnv> =
+        let tx_env: FoundryTempoTxEnv =
             FromRecoveredTx::from_recovered_tx(tx.transaction.as_ref(), *tx.sender());
 
-        if let FoundryTxEnvelope::Eip7702(tx_7702) = tx.transaction.as_ref()
-            && self.cheats.has_recover_overrides()
-        {
-            // Override invalid recovered authorizations with signature overrides from cheat manager
-            let cheated_auths = tx_7702
-                .tx()
-                .authorization_list
-                .iter()
-                .zip(tx_env.base.authorization_list)
-                .map(|(signed_auth, either_auth)| {
-                    either_auth.right_and_then(|recovered_auth| {
-                        if recovered_auth.authority().is_none()
-                            && let Ok(signature) = signed_auth.signature()
-                            && let Some(override_addr) =
-                                self.cheats.get_recover_override(&signature.as_bytes().into())
-                        {
-                            Either::Right(RecoveredAuthorization::new_unchecked(
-                                recovered_auth.into_parts().0,
-                                RecoveredAuthority::Valid(override_addr),
-                            ))
-                        } else {
-                            Either::Right(recovered_auth)
-                        }
-                    })
-                })
-                .collect();
-            tx_env.base.authorization_list = cheated_auths;
-        }
+        // TODO: Re-enable EIP-7702 authorization list cheats for Tempo
+        // if let FoundryTxEnvelope::Eip7702(tx_7702) = tx.transaction.as_ref()
+        //     && self.cheats.has_recover_overrides()
+        // {
+        //     // Override invalid recovered authorizations with signature overrides from cheat manager
+        //     ...
+        // }
 
-        if self.networks.is_optimism() {
-            tx_env.enveloped_tx = Some(alloy_rlp::encode(tx.transaction.as_ref()).into());
-        }
+        // TODO: OP-stack L1 fee calculation is disabled for Tempo
+        // if self.networks.is_optimism() {
+        //     tx_env.enveloped_tx = Some(alloy_rlp::encode(tx.transaction.as_ref()).into());
+        // }
 
-        Env::new(self.evm_env.clone(), tx_env, self.networks)
+        Env::new(self.evm_env.clone(), tx_env.0, self.networks)
     }
 }
 
@@ -340,9 +315,9 @@ impl<DB: Db + ?Sized, V: TransactionValidator> Iterator for &mut TransactionExec
         let env = self.env_for(&transaction.pending_transaction);
 
         // check that we comply with the block's gas limit, if not disabled
-        let max_block_gas = self.gas_used.saturating_add(env.tx.base.gas_limit);
+        let max_block_gas = self.gas_used.saturating_add(env.tx.inner.gas_limit);
         if !env.evm_env.cfg_env.disable_block_gas_limit
-            && max_block_gas > env.evm_env.block_env.gas_limit
+            && max_block_gas > env.evm_env.block_env.inner.gas_limit
         {
             return Some(TransactionExecutionOutcome::BlockGasExhausted(transaction));
         }
@@ -506,13 +481,27 @@ where
                 .cfg_env
                 .clone()
                 .with_spec_and_mainnet_gas_params(op_revm::OpSpecId::ISTHMUS),
-            env.evm_env.block_env.clone(),
+            env.evm_env.block_env.inner.clone(),
         );
         EitherEvm::Op(OpEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
     } else {
+        // Convert TempoHardfork to SpecId and TempoBlockEnv to BlockEnv for EthEvmFactory
+        use foundry_evm::hardforks::spec_id_from_tempo_hardfork;
+        use revm::context::CfgEnv;
+        let spec_id = spec_id_from_tempo_hardfork(env.evm_env.cfg_env.spec);
+        let mut cfg_env: CfgEnv<SpecId> = CfgEnv::default().with_spec(spec_id);
+        cfg_env.chain_id = env.evm_env.cfg_env.chain_id;
+        cfg_env.tx_gas_limit_cap = env.evm_env.cfg_env.tx_gas_limit_cap;
+        cfg_env.memory_limit = env.evm_env.cfg_env.memory_limit;
+        cfg_env.disable_nonce_check = env.evm_env.cfg_env.disable_nonce_check;
+        cfg_env.disable_balance_check = env.evm_env.cfg_env.disable_balance_check;
+        cfg_env.disable_base_fee = env.evm_env.cfg_env.disable_base_fee;
+        cfg_env.disable_block_gas_limit = env.evm_env.cfg_env.disable_block_gas_limit;
+        cfg_env.disable_eip3607 = env.evm_env.cfg_env.disable_eip3607;
+        let evm_env = EvmEnv::new(cfg_env, env.evm_env.block_env.inner.clone());
         EitherEvm::Eth(EthEvmFactory::default().create_evm_with_inspector(
             db,
-            env.evm_env.clone(),
+            evm_env,
             inspector,
         ))
     }

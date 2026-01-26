@@ -1,6 +1,10 @@
 [workspace]
 members = [
   "benches/",
+  "crates/anvil/",
+  "crates/anvil/core/",
+  "crates/anvil/rpc/",
+  "crates/anvil/server/",
   "crates/cast/",
   "crates/cheatcodes/",
   "crates/cheatcodes/spec/",

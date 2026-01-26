@@ -1,21 +1,29 @@
 use alloy_evm::EvmEnv;
 use foundry_evm::{EnvMut, core::AsEnvMut};
 use foundry_evm_networks::NetworkConfigs;
-use op_revm::OpTransaction;
-use revm::context::TxEnv;
+use foundry_primitives::FoundryTempoTxEnv;
+use tempo_chainspec::hardfork::TempoHardfork;
+use tempo_evm::TempoBlockEnv;
+use tempo_revm::TempoTxEnv;
 
-/// Helper container type for [`EvmEnv`] and [`OpTransaction<TxEnd>`].
+/// Helper container type for [`EvmEnv`] and [`FoundryTempoTxEnv`].
+///
+/// The transaction is wrapped in `FoundryTempoTxEnv` to provide the necessary
+/// trait implementations for compatibility with `EitherEvm`.
 #[derive(Clone, Debug, Default)]
 pub struct Env {
-    pub evm_env: EvmEnv,
-    pub tx: OpTransaction<TxEnv>,
+    pub evm_env: EvmEnv<TempoHardfork, TempoBlockEnv>,
+    pub tx: FoundryTempoTxEnv,
     pub networks: NetworkConfigs,
 }
 
-/// Helper container type for [`EvmEnv`] and [`OpTransaction<TxEnv>`].
 impl Env {
-    pub fn new(evm_env: EvmEnv, tx: OpTransaction<TxEnv>, networks: NetworkConfigs) -> Self {
-        Self { evm_env, tx, networks }
+    pub fn new(
+        evm_env: EvmEnv<TempoHardfork, TempoBlockEnv>,
+        tx: TempoTxEnv,
+        networks: NetworkConfigs,
+    ) -> Self {
+        Self { evm_env, tx: FoundryTempoTxEnv(tx), networks }
     }
 }
 
@@ -24,7 +32,7 @@ impl AsEnvMut for Env {
         EnvMut {
             block: &mut self.evm_env.block_env,
             cfg: &mut self.evm_env.cfg_env,
-            tx: &mut self.tx.base,
+            tx: &mut self.tx.0,
         }
     }
 }

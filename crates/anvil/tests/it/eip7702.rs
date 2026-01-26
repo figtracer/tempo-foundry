@@ -7,7 +7,7 @@ use alloy_rpc_types::{Authorization, TransactionRequest};
 use alloy_serde::WithOtherFields;
 use alloy_signer::{Signature, SignerSync};
 use anvil::{NodeConfig, spawn};
-use foundry_evm::hardfork::EthereumHardfork;
+use foundry_evm::hardforks::EthereumHardfork;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn can_send_eip7702_tx() {

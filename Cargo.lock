@@ -2812,6 +2812,7 @@ dependencies = [
  "alloy-signer-local",
  "alloy-sol-types",
  "alloy-transport",
+ "anvil",
  "chrono",
  "clap",
  "clap_complete",
@@ -4812,6 +4813,7 @@ dependencies = [
  "alloy-signer",
  "alloy-signer-local",
  "alloy-transport",
+ "anvil",
  "axum",
  "chrono",
  "clap",
@@ -5719,6 +5721,7 @@ dependencies = [
 name = "foundry-test-utils"
 version = "1.5.1"
 dependencies = [
+ "alloy-chains",
  "alloy-primitives",
  "alloy-provider",
  "eyre",

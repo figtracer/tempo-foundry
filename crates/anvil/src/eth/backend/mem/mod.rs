@@ -2401,6 +2401,33 @@ impl Backend {
             block.other.insert("l1BlockNumber".to_string(), number.into());
         }
 
+        // Add Tempo-specific fields for compatibility with TempoNetwork provider.
+        // Since Anvil doesn't store sub-second precision, timestampMillis = timestamp * 1000.
+        let timestamp = block.header.inner.timestamp();
+        let gas_limit = block.header.inner.gas_limit();
+        let timestamp_millis = timestamp.saturating_mul(1000);
+
+        block.other.insert(
+            "timestampMillis".to_string(),
+            serde_json::Value::String(format!("0x{timestamp_millis:x}")),
+        );
+        // mainBlockGeneralGasLimit: In Tempo, the block gas limit is split between general and
+        // shared. For Anvil compatibility, we use the full gas limit as general gas limit.
+        block.other.insert(
+            "mainBlockGeneralGasLimit".to_string(),
+            serde_json::Value::String(format!("0x{gas_limit:x}")),
+        );
+        // sharedGasLimit: For Anvil, we set this to 0 since there's no shared block concept.
+        block.other.insert(
+            "sharedGasLimit".to_string(),
+            serde_json::Value::String("0x0".to_string()),
+        );
+        // timestampMillisPart: The sub-second portion of the timestamp (always 0 for Anvil).
+        block.other.insert(
+            "timestampMillisPart".to_string(),
+            serde_json::Value::String("0x0".to_string()),
+        );
+
         AnyRpcBlock::from(block)
     }
 

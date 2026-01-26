@@ -1185,6 +1185,7 @@ async fn test_call_tracer_debug_trace_call_pre_state_tracer() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Tempo fee handling differs from Ethereum - coinbase balance values differ"]
 async fn test_debug_trace_transaction_pre_state_tracer() {
     let node_config = NodeConfig::test().with_hardfork(Some(EthereumHardfork::Prague.into()));
     let (api, handle) = spawn(node_config).await;

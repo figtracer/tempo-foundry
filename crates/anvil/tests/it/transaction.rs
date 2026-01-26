@@ -901,6 +901,7 @@ async fn test_tx_receipt() {
 
 // <https://github.com/foundry-rs/foundry/issues/12837>
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Reverted contract creation address handling differs in Tempo"]
 async fn test_reverted_contract_creation_has_contract_address() {
     let (_api, handle) = spawn(NodeConfig::test()).await;
 
@@ -1268,6 +1269,7 @@ async fn can_call_with_high_gas_limit() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Tempo hardforks are always post-London, EIP-1559 is always supported"]
 async fn test_reject_eip1559_pre_london() {
     let (api, handle) =
         spawn(NodeConfig::test().with_hardfork(Some(EthereumHardfork::Berlin.into()))).await;

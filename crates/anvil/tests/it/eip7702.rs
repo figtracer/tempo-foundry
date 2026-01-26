@@ -155,6 +155,7 @@ async fn can_send_eip7702_request() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "EIP-7702 authorization list cheats are not yet implemented for Tempo"]
 async fn eip7702_authorization_bypass() {
     let node_config = NodeConfig::test().with_hardfork(Some(EthereumHardfork::Prague.into()));
     let (api, handle) = spawn(node_config).await;

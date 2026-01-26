@@ -328,13 +328,10 @@ Ran 2 test suites [ELAPSED]: 3 tests passed, 0 failed, 0 skipped (3 total tests)
     assert_eq!(function_config.test_isolated_function, contract_config.test_isolated_contract);
 });
 
-forgetest_init!(
-    #[ignore = "tempo skip"]
-    config_inline_evm_version,
-    |prj, cmd| {
-        prj.add_test(
-            "inline.sol",
-            r#"
+forgetest_init!(config_inline_evm_version, |prj, cmd| {
+    prj.add_test(
+        "inline.sol",
+        r#"
         import {Test} from "forge-std/Test.sol";
 
         contract Dummy {
@@ -380,9 +377,9 @@ forgetest_init!(
             }
         }
     "#,
-        );
+    );
 
-        cmd.args(["test", "--evm-version=cancun", "-j1"]).assert_success().stdout_eq(str![[r#"
+    cmd.args(["test", "--evm-version=cancun", "-j1"]).assert_success().stdout_eq(str![[r#"
 ...
 Ran 2 tests for test/inline.sol:ContractConfig
 [PASS] test_new() ([GAS])
@@ -397,5 +394,4 @@ Suite result: ok. 2 passed; 0 failed; 0 skipped; [ELAPSED]
 Ran 2 test suites [ELAPSED]: 4 tests passed, 0 failed, 0 skipped (4 total tests)
 
 "#]]);
-    }
-);
+});

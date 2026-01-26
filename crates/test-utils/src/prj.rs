@@ -834,7 +834,7 @@ fn test_redactions() -> snapbox::Redactions {
             ("[ESTIMATED_TOTAL_GAS_USED]", r"Estimated total gas used for script: \d+"),
             (
                 "[ESTIMATED_AMOUNT_REQUIRED]",
-                r"Estimated amount required:\s*(\d+(\.\d+)?)\s*[A-Z]{3}",
+                r"Estimated amount required:\s*(\d+(\.\d+)?)\s*\S+",
             ),
         ])
     });

@@ -78,20 +78,17 @@ contract AssumeTest is Test {
 
 // Test too many inputs rejected for `assumePrecompile`/`assumeForgeAddress`.
 // <https://github.com/foundry-rs/foundry/issues/9054>
-forgetest_init!(
-    #[ignore = "tempo skip"]
-    should_revert_with_assume_code,
-    |prj, cmd| {
-        prj.update_config(|config| {
-            config.invariant.fail_on_revert = true;
-            config.invariant.max_assume_rejects = 10;
-            config.fuzz.seed = Some(U256::from(100u32));
-        });
+forgetest_init!(should_revert_with_assume_code, |prj, cmd| {
+    prj.update_config(|config| {
+        config.invariant.fail_on_revert = true;
+        config.invariant.max_assume_rejects = 10;
+        config.fuzz.seed = Some(U256::from(100u32));
+    });
 
-        // Add initial test that breaks invariant.
-        prj.add_test(
-            "AssumeTest.t.sol",
-            r#"
+    // Add initial test that breaks invariant.
+    prj.add_test(
+        "AssumeTest.t.sol",
+        r#"
 import {Test} from "forge-std/Test.sol";
 
 contract BalanceTestHandler is Test {
@@ -121,15 +118,14 @@ contract BalanceAssumeTest is Test {
     function invariant_balance() public {}
 }
      "#,
-        );
+    );
 
-        cmd.args(["test", "--mt", "invariant_balance"]).assert_failure().stdout_eq(str![[r#"
+    cmd.args(["test", "--mt", "invariant_balance"]).assert_failure().stdout_eq(str![[r#"
 ...
-[FAIL: `vm.assume` rejected too many inputs (10 allowed)] invariant_balance() (runs: [..], calls: [..], reverts: 0)
+[FAIL: `vm.assume` rejected too many inputs (10 allowed)] invariant_balance() (runs: 2, calls: 1000, reverts: 0)
 ...
 "#]]);
-    }
-);
+});
 
 // Test proper message displayed if `targetSelector`/`excludeSelector` called with empty selectors.
 // <https://github.com/foundry-rs/foundry/issues/9066>
@@ -380,16 +376,13 @@ contract InvariantSelectorsWeightTest is Test {
 
 // Tests original and new counterexample lengths are displayed on failure.
 // Tests switch from regular sequence output to solidity.
-forgetest_init!(
-    #[ignore = "tempo skip"]
-    invariant_sequence_len,
-    |prj, cmd| {
-        prj.initialize_default_contracts();
-        prj.update_config(|config| {
-            config.fuzz.seed = Some(U256::from(10u32));
-        });
+forgetest_init!(invariant_sequence_len, |prj, cmd| {
+    prj.initialize_default_contracts();
+    prj.update_config(|config| {
+        config.fuzz.seed = Some(U256::from(10u32));
+    });
 
-        prj.add_test(
+    prj.add_test(
         "InvariantSequenceLenTest.t.sol",
         r#"
 import {Test} from "forge-std/Test.sol";
@@ -410,19 +403,19 @@ contract InvariantSequenceLenTest is Test {
    "#,
     );
 
-        cmd.args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(str![[r#"
+    cmd.args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(str![[r#"
 ...
 [FAIL: invariant increment failure]
 	[Sequence] (original: 3, shrunk: 1)
 ...
 "#]]);
 
-        // Check regular sequence output. Shrink disabled to show several lines.
-        cmd.forge_fuse().arg("clean").assert_success();
-        prj.update_config(|config| {
-            config.invariant.shrink_run_limit = 0;
-        });
-        cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
+    // Check regular sequence output. Shrink disabled to show several lines.
+    cmd.forge_fuse().arg("clean").assert_success();
+    prj.update_config(|config| {
+        config.invariant.shrink_run_limit = 0;
+    });
+    cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
         str![[r#"
 ...
 Failing tests:
@@ -441,12 +434,12 @@ Tip: Run `forge test --rerun` to retry only the 1 failed test
 "#]],
     );
 
-        // Check solidity sequence output on same failure.
-        cmd.forge_fuse().arg("clean").assert_success();
-        prj.update_config(|config| {
-            config.invariant.show_solidity = true;
-        });
-        cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
+    // Check solidity sequence output on same failure.
+    cmd.forge_fuse().arg("clean").assert_success();
+    prj.update_config(|config| {
+        config.invariant.show_solidity = true;
+    });
+    cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
         str![[r#"
 ...
 Failing tests:
@@ -468,11 +461,11 @@ Tip: Run `forge test --rerun` to retry only the 1 failed test
 "#]],
     );
 
-        // Persisted failures should be able to switch output.
-        prj.update_config(|config| {
-            config.invariant.show_solidity = false;
-        });
-        cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
+    // Persisted failures should be able to switch output.
+    prj.update_config(|config| {
+        config.invariant.show_solidity = false;
+    });
+    cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
         str![[r#"
 ...
 Failing tests:
@@ -490,8 +483,7 @@ Tip: Run `forge test --rerun` to retry only the 1 failed test
 
 "#]],
     );
-    }
-);
+});
 
 // Tests that persisted failure is discarded if test contract was modified.
 // <https://github.com/foundry-rs/foundry/issues/9965>
@@ -998,4 +990,184 @@ Ran 3 test suites [ELAPSED]: 6 tests passed, 0 failed, 0 skipped (6 total tests)
     assert!(
         prj.root().join("fuzz_corpus").join("Counter2Test").join("testFuzz_SetNumber").exists()
     );
+});
+
+// Tests that check_interval=0 only asserts on the last call of each run.
+forgetest_init!(check_interval_zero_only_checks_last_call, |prj, cmd| {
+    prj.update_config(|config| {
+        config.invariant.runs = 5;
+        config.invariant.depth = 10;
+        config.invariant.check_interval = 0;
+    });
+    prj.add_test(
+        "CheckIntervalTest.t.sol",
+        r#"
+import {Test} from "forge-std/Test.sol";
+
+contract CounterHandler {
+    uint256 public counter;
+
+    function increment() public {
+        counter++;
+    }
+}
+
+contract CheckIntervalTest is Test {
+    CounterHandler handler;
+
+    function setUp() public {
+        handler = new CounterHandler();
+        targetContract(address(handler));
+    }
+
+    // This invariant would fail on intermediate calls (counter 1-9) but passes on call 10
+    // With check_interval=0, only the last call is checked, so if depth=10 and counter=10
+    // at the end, this should pass even though intermediate states violated the invariant.
+    function invariant_counter_multiple_of_depth() public view {
+        // Only passes when counter is 0 or 10 (depth). Fails for 1-9.
+        require(handler.counter() == 0 || handler.counter() == 10, "not multiple of depth");
+    }
+}
+   "#,
+    );
+
+    cmd.args(["test", "--mt", "invariant_counter"]).assert_success().stdout_eq(str![[r#"
+...
+[PASS] invariant_counter_multiple_of_depth() (runs: 5, calls: 50, reverts: 0)
+...
+"#]]);
+});
+
+// Tests that check_interval=1 (default) asserts after every call.
+forgetest_init!(check_interval_one_checks_every_call, |prj, cmd| {
+    prj.update_config(|config| {
+        config.invariant.runs = 1;
+        config.invariant.depth = 10;
+        config.invariant.check_interval = 1;
+    });
+    prj.add_test(
+        "CheckIntervalTest.t.sol",
+        r#"
+import {Test} from "forge-std/Test.sol";
+
+contract CounterHandler {
+    uint256 public counter;
+
+    function increment() public {
+        counter++;
+    }
+}
+
+contract CheckIntervalTest is Test {
+    CounterHandler handler;
+
+    function setUp() public {
+        handler = new CounterHandler();
+        targetContract(address(handler));
+    }
+
+    // This invariant fails as soon as counter > 5.
+    // With check_interval=1, it should fail on call 6.
+    function invariant_counter_le_five() public view {
+        require(handler.counter() <= 5, "counter > 5");
+    }
+}
+   "#,
+    );
+
+    assert_invariant(cmd.args(["test", "--mt", "invariant_counter"])).failure().stdout_eq(str![[
+        r#"
+...
+[FAIL: counter > 5]
+	[SEQUENCE]
+...
+"#
+    ]]);
+});
+
+// Tests that check_interval=N checks every N calls AND always on the last call.
+forgetest_init!(check_interval_n_checks_every_n_calls, |prj, cmd| {
+    prj.update_config(|config| {
+        config.invariant.runs = 1;
+        config.invariant.depth = 20;
+        config.invariant.check_interval = 5;
+    });
+    prj.add_test(
+        "CheckIntervalTest.t.sol",
+        r#"
+import {Test} from "forge-std/Test.sol";
+
+contract CounterHandler {
+    uint256 public counter;
+
+    function increment() public {
+        counter++;
+    }
+}
+
+contract CheckIntervalTest is Test {
+    CounterHandler handler;
+
+    function setUp() public {
+        handler = new CounterHandler();
+        targetContract(address(handler));
+    }
+
+    // With check_interval=5 and depth=20, invariant is checked at calls 5,10,15,20.
+    // This passes because 5,10,15,20 are all multiples of 5.
+    function invariant_counter_multiple_of_five() public view {
+        require(handler.counter() % 5 == 0, "not multiple of 5");
+    }
+}
+   "#,
+    );
+
+    cmd.args(["test", "--mt", "invariant_counter"]).assert_success().stdout_eq(str![[r#"
+...
+[PASS] invariant_counter_multiple_of_five() (runs: 1, calls: 20, reverts: 0)
+...
+"#]]);
+});
+
+// Tests check_interval via inline config annotation.
+forgetest_init!(check_interval_inline_config, |prj, cmd| {
+    prj.add_test(
+        "CheckIntervalInlineTest.t.sol",
+        r#"
+import {Test} from "forge-std/Test.sol";
+
+contract CounterHandler {
+    uint256 public counter;
+
+    function increment() public {
+        counter++;
+    }
+}
+
+contract CheckIntervalInlineTest is Test {
+    CounterHandler handler;
+
+    function setUp() public {
+        handler = new CounterHandler();
+        targetContract(address(handler));
+    }
+
+    /// forge-config: default.invariant.runs = 1
+    /// forge-config: default.invariant.depth = 10
+    /// forge-config: default.invariant.check_interval = 0
+    function invariant_only_last_checked() public view {
+        // Only passes when counter is 0 or 10. With check_interval=0, only last call is checked.
+        require(handler.counter() == 0 || handler.counter() == 10, "not at boundary");
+    }
+}
+   "#,
+    );
+
+    cmd.args(["test", "--mt", "invariant_only_last_checked"]).assert_success().stdout_eq(str![[
+        r#"
+...
+[PASS] invariant_only_last_checked() (runs: 1, calls: 10, reverts: 0)
+...
+"#
+    ]]);
 });

@@ -17,7 +17,6 @@ use std::{env, fs, path::PathBuf};
 
 // Tests that fork cheat codes can be used in script
 forgetest_init!(
-    #[ignore]
     can_use_fork_cheat_codes_in_script,
     |prj, cmd| {
         let script = prj.add_source(
@@ -736,7 +735,7 @@ forgetest_async!(can_deploy_script_private_key, |prj, cmd| {
         .await;
 });
 
-forgetest_async!(#[ignore = "tempo skip - requires fee token setup for multi-sender"] can_deploy_unlocked, |prj, cmd| {
+forgetest_async!(#[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"] can_deploy_unlocked, |prj, cmd| {
     let (_api, handle) = spawn(NodeConfig::test()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
@@ -807,7 +806,7 @@ forgetest_async!(can_resume_script, |prj, cmd| {
         .await;
 });
 
-forgetest_async!(#[ignore = "tempo skip - requires fee token setup for multi-sender"] can_deploy_broadcast_wrap, |prj, cmd| {
+forgetest_async!(#[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"] can_deploy_broadcast_wrap, |prj, cmd| {
     let (_api, handle) = spawn(NodeConfig::test()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
@@ -822,7 +821,7 @@ forgetest_async!(#[ignore = "tempo skip - requires fee token setup for multi-sen
         .await;
 });
 
-forgetest_async!(#[ignore = "tempo skip - requires fee token setup for multi-sender"] panic_no_deployer_set, |prj, cmd| {
+forgetest_async!(#[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"] panic_no_deployer_set, |prj, cmd| {
     let (_api, handle) = spawn(NodeConfig::test()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
@@ -3287,7 +3286,7 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 "#]]);
 });
 
-forgetest_async!(#[ignore = "tempo skip - requires fee token setup"] flaky_can_deploy_with_broadcast_in_setup, |prj, cmd| {
+forgetest_async!(#[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"] flaky_can_deploy_with_broadcast_in_setup, |prj, cmd| {
     foundry_test_utils::util::initialize(prj.root());
     prj.add_script(
         "Deploy.s.sol",

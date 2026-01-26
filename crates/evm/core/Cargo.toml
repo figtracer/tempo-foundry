@@ -57,6 +57,7 @@ op-revm.workspace = true
 alloy-op-evm.workspace = true
 
 tempo-alloy.workspace = true
+tempo-contracts.workspace = true
 tempo-evm.workspace = true
 tempo-revm.workspace = true
 tempo-chainspec.workspace = true

@@ -94,8 +94,8 @@ impl ExecutedTransaction {
                     logs_bloom: receipt_with_bloom.logs_bloom,
                 })
             }
-            // TODO(onbjerg): we should impl support for Tempo transactions
-            FoundryTxEnvelope::Tempo(_) => todo!(),
+            // Tempo transactions use EIP-1559 style receipts
+            FoundryTxEnvelope::Tempo(_) => FoundryReceiptEnvelope::Eip1559(receipt_with_bloom),
         }
     }
 }
@@ -155,12 +155,17 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
         let mix_hash = self.evm_env.block_env().prevrandao;
         let beneficiary = self.evm_env.block_env().beneficiary;
         let timestamp = self.evm_env.block_env().timestamp;
-        // Tempo hardforks are all post-OSAKA, so all these features are enabled
-        let base_fee = Some(self.evm_env.block_env().basefee);
 
-        let is_shanghai = true;
-        let is_cancun = true;
-        let is_prague = true;
+        // Determine hardfork features based on spec_id
+        // Note: Tempo hardforks are all post-OSAKA, so all these features are enabled for Tempo.
+        // For Ethereum mode, we use the actual spec_id from the config.
+        let spec_id = foundry_evm::hardforks::spec_id_from_tempo_hardfork(self.evm_env.cfg_env.spec);
+        let is_london = spec_id >= SpecId::LONDON;
+        let is_shanghai = spec_id >= SpecId::SHANGHAI;
+        let is_cancun = spec_id >= SpecId::CANCUN;
+        let is_prague = spec_id >= SpecId::PRAGUE;
+
+        let base_fee = is_london.then_some(self.evm_env.block_env().basefee);
         let excess_blob_gas = self.evm_env.block_env().blob_excess_gas();
         let mut cumulative_blob_gas_used = Some(0u64);
 

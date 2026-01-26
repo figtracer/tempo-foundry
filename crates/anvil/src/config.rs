@@ -422,10 +422,19 @@ Genesis Number
 
 impl NodeConfig {
     /// Returns a new config intended to be used in tests, which does not print and binds to a
-    /// random, free port by setting it to `0`
+    /// random, free port by setting it to `0`.
+    ///
+    /// Enables Tempo mode by default since tempo-foundry clients (forge, cast) use `TempoNetwork`
+    /// and expect Tempo-specific block fields like `timestampMillis`.
     #[doc(hidden)]
     pub fn test() -> Self {
-        Self { enable_tracing: true, port: 0, silent: true, ..Default::default() }
+        Self {
+            enable_tracing: true,
+            port: 0,
+            silent: true,
+            networks: NetworkConfigs::with_tempo(),
+            ..Default::default()
+        }
     }
 
     /// Returns a new config which does not initialize any accounts on node startup.
@@ -1030,6 +1039,20 @@ impl NodeConfig {
     #[must_use]
     pub fn with_networks(mut self, networks: NetworkConfigs) -> Self {
         self.networks = networks;
+        self
+    }
+
+    /// Enable Tempo network features.
+    #[must_use]
+    pub fn with_tempo(mut self) -> Self {
+        self.networks = NetworkConfigs::with_tempo();
+        self
+    }
+
+    /// Enable Optimism network features.
+    #[must_use]
+    pub fn with_optimism(mut self) -> Self {
+        self.networks = NetworkConfigs::with_optimism();
         self
     }
 

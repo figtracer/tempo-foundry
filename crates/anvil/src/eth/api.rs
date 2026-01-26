@@ -3426,13 +3426,12 @@ impl EthApi {
             | FoundryTypedTx::Eip1559(_)
             | FoundryTypedTx::Eip7702(_)
             | FoundryTypedTx::Eip4844(_)
-            | FoundryTypedTx::Deposit(_) => Signature::from_scalars_and_parity(
+            | FoundryTypedTx::Deposit(_)
+            | FoundryTypedTx::Tempo(_) => Signature::from_scalars_and_parity(
                 B256::with_last_byte(1),
                 B256::with_last_byte(1),
                 false,
             ),
-            // TODO(onbjerg): we should impl support for Tempo transactions
-            FoundryTypedTx::Tempo(_) => todo!(),
         }
     }
 
@@ -3502,9 +3501,8 @@ impl EthApi {
             FoundryTxEnvelope::Eip4844(_) => self.backend.ensure_eip4844_active(),
             FoundryTxEnvelope::Eip7702(_) => self.backend.ensure_eip7702_active(),
             FoundryTxEnvelope::Deposit(_) => self.backend.ensure_op_deposits_active(),
+            FoundryTxEnvelope::Tempo(_) => self.backend.ensure_tempo_active(),
             FoundryTxEnvelope::Legacy(_) => Ok(()),
-            // TODO(onbjerg): we should impl support for Tempo transactions
-            FoundryTxEnvelope::Tempo(_) => todo!(),
         }
     }
 }

@@ -162,7 +162,11 @@ Transaction: {
   "gas": "0x241e7",
   "input": "[..]",
   "nonce": "0x0",
-  "chainId": "0x7a69"
+  "chainId": "0x7a69",
+  "feeToken": null,
+  "calls": [],
+  "keyType": null,
+  "keyData": null
 }
 ABI: [
   {
@@ -216,7 +220,11 @@ ABI: [
     "gas": "0x241e7",
     "input": "[..]",
     "nonce": "0x0",
-    "chainId": "0x7a69"
+    "chainId": "0x7a69",
+    "feeToken": null,
+    "calls": [],
+    "keyType": null,
+    "keyData": null
   },
   "abi": [
     {

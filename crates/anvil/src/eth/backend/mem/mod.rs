@@ -105,8 +105,6 @@ use foundry_evm::{
     },
     utils::{get_blob_base_fee_update_fraction, get_blob_base_fee_update_fraction_by_spec_id},
 };
-use tempo_chainspec::hardfork::TempoHardfork;
-use tempo_evm::TempoBlockEnv;
 use foundry_primitives::{
     FoundryReceiptEnvelope, FoundryTempoTxEnv, FoundryTransactionRequest, FoundryTxEnvelope,
     FoundryTxReceipt, get_deposit_tx_parts,
@@ -114,7 +112,6 @@ use foundry_primitives::{
 use futures::channel::mpsc::{UnboundedSender, unbounded};
 use op_alloy_consensus::DEPOSIT_TX_TYPE_ID;
 use op_revm::{OpContext, OpHaltReason, OpTransaction};
-use tempo_revm::TempoTxEnv;
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use revm::{
     DatabaseCommit, Inspector,
@@ -139,6 +136,9 @@ use std::{
     time::Duration,
 };
 use storage::{Blockchain, DEFAULT_HISTORY_LIMIT, MinedTransaction};
+use tempo_chainspec::hardfork::TempoHardfork;
+use tempo_evm::TempoBlockEnv;
+use tempo_revm::TempoTxEnv;
 use tokio::sync::RwLock as AsyncRwLock;
 
 pub mod cache;
@@ -459,11 +459,13 @@ impl Backend {
             let chain_id = self.env.read().evm_env.cfg_env.chain_id;
             let timestamp = self.genesis.timestamp;
             let mut db = self.db.write().await;
-            crate::eth::backend::tempo::initialize_tempo_precompiles(&mut **db, chain_id, timestamp)
-                .map_err(|e| {
-                    tracing::error!(target: "backend", "failed to initialize Tempo precompiles: {e}");
-                    DatabaseError::AnyRequest(Arc::new(eyre::eyre!("{e}")))
-                })?;
+            crate::eth::backend::tempo::initialize_tempo_precompiles(
+                &mut **db, chain_id, timestamp,
+            )
+            .map_err(|e| {
+                tracing::error!(target: "backend", "failed to initialize Tempo precompiles: {e}");
+                DatabaseError::AnyRequest(Arc::new(eyre::eyre!("{e}")))
+            })?;
             trace!(target: "backend", "initialized Tempo precompiles and fee tokens");
         }
 
@@ -1082,10 +1084,8 @@ impl Backend {
         // reset the block env
         if let Some(block) = state.block.clone() {
             let best_number = state.best_block_number.unwrap_or(block.number.saturating_to());
-            self.env.write().evm_env.block_env = TempoBlockEnv {
-                inner: block,
-                timestamp_millis_part: 0,
-            };
+            self.env.write().evm_env.block_env =
+                TempoBlockEnv { inner: block, timestamp_millis_part: 0 };
 
             // Set the current best block number.
             // Defaults to block number for compatibility with existing state files.
@@ -2444,10 +2444,9 @@ impl Backend {
                 serde_json::Value::String(format!("0x{gas_limit:x}")),
             );
             // sharedGasLimit: For Anvil, we set this to 0 since there's no shared block concept.
-            block.other.insert(
-                "sharedGasLimit".to_string(),
-                serde_json::Value::String("0x0".to_string()),
-            );
+            block
+                .other
+                .insert("sharedGasLimit".to_string(), serde_json::Value::String("0x0".to_string()));
             // timestampMillisPart: The sub-second portion of the timestamp (always 0 for Anvil).
             block.other.insert(
                 "timestampMillisPart".to_string(),

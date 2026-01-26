@@ -25,8 +25,6 @@ use alloy_evm::{
 };
 use alloy_op_evm::OpEvmFactory;
 use alloy_primitives::{B256, Bloom, BloomInput, Log};
-use tempo_chainspec::hardfork::TempoHardfork;
-use tempo_evm::TempoBlockEnv;
 use anvil_core::eth::{
     block::{BlockInfo, create_block},
     transaction::{PendingTransaction, TransactionInfo},
@@ -39,7 +37,6 @@ use foundry_evm::{
 use foundry_evm_networks::NetworkConfigs;
 use foundry_primitives::{FoundryReceiptEnvelope, FoundryTempoTxEnv, FoundryTxEnvelope};
 use op_revm::OpContext;
-use tempo_revm::TempoTxEnv;
 use revm::{
     Database, Inspector,
     context::{Block as RevmBlock, Cfg, TxEnv},
@@ -48,6 +45,9 @@ use revm::{
     primitives::hardfork::SpecId,
 };
 use std::{fmt::Debug, sync::Arc};
+use tempo_chainspec::hardfork::TempoHardfork;
+use tempo_evm::TempoBlockEnv;
+use tempo_revm::TempoTxEnv;
 
 /// Represents an executed transaction (transacted on the DB)
 #[derive(Debug)]
@@ -159,7 +159,8 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
         // Determine hardfork features based on spec_id
         // Note: Tempo hardforks are all post-OSAKA, so all these features are enabled for Tempo.
         // For Ethereum mode, we use the actual spec_id from the config.
-        let spec_id = foundry_evm::hardforks::spec_id_from_tempo_hardfork(self.evm_env.cfg_env.spec);
+        let spec_id =
+            foundry_evm::hardforks::spec_id_from_tempo_hardfork(self.evm_env.cfg_env.spec);
         let is_london = spec_id >= SpecId::LONDON;
         let is_shanghai = spec_id >= SpecId::SHANGHAI;
         let is_cancun = spec_id >= SpecId::CANCUN;
@@ -277,8 +278,8 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
         // if let FoundryTxEnvelope::Eip7702(tx_7702) = tx.transaction.as_ref()
         //     && self.cheats.has_recover_overrides()
         // {
-        //     // Override invalid recovered authorizations with signature overrides from cheat manager
-        //     ...
+        //     // Override invalid recovered authorizations with signature overrides from cheat
+        // manager     ...
         // }
 
         // TODO: OP-stack L1 fee calculation is disabled for Tempo
@@ -504,10 +505,6 @@ where
         cfg_env.disable_block_gas_limit = env.evm_env.cfg_env.disable_block_gas_limit;
         cfg_env.disable_eip3607 = env.evm_env.cfg_env.disable_eip3607;
         let evm_env = EvmEnv::new(cfg_env, env.evm_env.block_env.inner.clone());
-        EitherEvm::Eth(EthEvmFactory::default().create_evm_with_inspector(
-            db,
-            evm_env,
-            inspector,
-        ))
+        EitherEvm::Eth(EthEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
     }
 }

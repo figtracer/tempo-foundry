@@ -68,10 +68,7 @@ impl DerefMut for FoundryTempoTxEnv {
 /// Tempo-native EVM types.
 impl IntoTxEnv<OpTransaction<TxEnv>> for FoundryTempoTxEnv {
     fn into_tx_env(self) -> OpTransaction<TxEnv> {
-        OpTransaction {
-            base: self.0.inner,
-            ..Default::default()
-        }
+        OpTransaction { base: self.0.inner, ..Default::default() }
     }
 }
 
@@ -83,9 +80,6 @@ impl FromRecoveredTx<FoundryTxEnvelope> for FoundryTempoTxEnv {
     fn from_recovered_tx(tx: &FoundryTxEnvelope, caller: Address) -> Self {
         // First convert to OpTransaction<TxEnv>, then extract the base TxEnv
         let op_tx: OpTransaction<TxEnv> = FromRecoveredTx::from_recovered_tx(tx, caller);
-        Self(TempoTxEnv {
-            inner: op_tx.base,
-            ..Default::default()
-        })
+        Self(TempoTxEnv { inner: op_tx.base, ..Default::default() })
     }
 }

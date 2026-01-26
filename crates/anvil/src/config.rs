@@ -54,8 +54,6 @@ use revm::{
     context_interface::block::BlobExcessGasAndPrice,
     primitives::hardfork::SpecId,
 };
-use tempo_evm::TempoBlockEnv;
-use tempo_revm::TempoTxEnv;
 use serde_json::{Value, json};
 use std::{
     fmt::Write as FmtWrite,
@@ -66,6 +64,8 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tempo_evm::TempoBlockEnv;
+use tempo_revm::TempoTxEnv;
 use tokio::sync::RwLock as TokioRwLock;
 use yansi::Paint;
 

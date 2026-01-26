@@ -93,8 +93,8 @@ use revm::{
     interpreter::{InstructionResult, return_ok, return_revert},
     primitives::eip7702::PER_EMPTY_ACCOUNT_COST,
 };
-use tempo_evm::TempoBlockEnv;
 use std::{sync::Arc, time::Duration};
+use tempo_evm::TempoBlockEnv;
 use tokio::{
     sync::mpsc::{UnboundedReceiver, unbounded_channel},
     try_join,

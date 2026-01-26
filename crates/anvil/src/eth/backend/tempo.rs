@@ -83,17 +83,13 @@ impl PrecompileStorageProvider for AnvilStorageProvider<'_> {
         f: &mut dyn FnMut(&AccountInfo),
     ) -> Result<(), TempoPrecompileError> {
         use revm::DatabaseRef;
-        if let Some(info) = self
-            .db
-            .basic_ref(address)
-            .map_err(|e| TempoPrecompileError::Fatal(e.to_string()))?
+        if let Some(info) =
+            self.db.basic_ref(address).map_err(|e| TempoPrecompileError::Fatal(e.to_string()))?
         {
             f(&info);
             Ok(())
         } else {
-            Err(TempoPrecompileError::Fatal(format!(
-                "account '{address}' not found"
-            )))
+            Err(TempoPrecompileError::Fatal(format!("account '{address}' not found")))
         }
     }
 

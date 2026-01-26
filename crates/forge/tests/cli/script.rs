@@ -16,12 +16,10 @@ use serde_json::Value;
 use std::{env, fs, path::PathBuf};
 
 // Tests that fork cheat codes can be used in script
-forgetest_init!(
-    can_use_fork_cheat_codes_in_script,
-    |prj, cmd| {
-        let script = prj.add_source(
-            "Foo",
-            r#"
+forgetest_init!(can_use_fork_cheat_codes_in_script, |prj, cmd| {
+    let script = prj.add_source(
+        "Foo",
+        r#"
 import "forge-std/Script.sol";
 
 contract ContractScript is Script {
@@ -33,13 +31,12 @@ contract ContractScript is Script {
     }
 }
    "#,
-        );
+    );
 
-        let rpc = foundry_test_utils::rpc::next_http_rpc_endpoint();
+    let rpc = foundry_test_utils::rpc::next_http_rpc_endpoint();
 
-        cmd.arg("script").arg(script).args(["--fork-url", rpc.as_str(), "-vvvvv"]).assert_success();
-    }
-);
+    cmd.arg("script").arg(script).args(["--fork-url", rpc.as_str(), "-vvvvv"]).assert_success();
+});
 
 // Tests that the `run` command works correctly
 forgetest!(can_execute_script_command2, |prj, cmd| {
@@ -166,11 +163,14 @@ Error: script failed: failed
 });
 
 // Tests that the manually specified gas limit is used when using the --unlocked option
-forgetest_async!(#[ignore = "tempo skip - uses Ethereum archive RPC which lacks Tempo block fields"] can_execute_script_command_with_manual_gas_limit_unlocked, |prj, cmd| {
-    foundry_test_utils::util::initialize(prj.root());
-    let deploy_script = prj.add_source(
-        "Foo",
-        r#"
+forgetest_async!(
+    #[ignore = "tempo skip - uses Ethereum archive RPC which lacks Tempo block fields"]
+    can_execute_script_command_with_manual_gas_limit_unlocked,
+    |prj, cmd| {
+        foundry_test_utils::util::initialize(prj.root());
+        let deploy_script = prj.add_source(
+            "Foo",
+            r#"
 import "forge-std/Script.sol";
 
 contract GasWaster {
@@ -186,16 +186,17 @@ contract DeployScript is Script {
     }
 }
    "#,
-    );
+        );
 
-    let deploy_contract = deploy_script.display().to_string() + ":DeployScript";
+        let deploy_contract = deploy_script.display().to_string() + ":DeployScript";
 
-    let node_config = NodeConfig::test().with_eth_rpc_url(Some(rpc::next_http_archive_rpc_url()));
-    let (_api, handle) = spawn(node_config).await;
-    let dev = handle.dev_accounts().next().unwrap();
-    cmd.set_current_dir(prj.root());
+        let node_config =
+            NodeConfig::test().with_eth_rpc_url(Some(rpc::next_http_archive_rpc_url()));
+        let (_api, handle) = spawn(node_config).await;
+        let dev = handle.dev_accounts().next().unwrap();
+        cmd.set_current_dir(prj.root());
 
-    cmd.args([
+        cmd.args([
         "script",
         &deploy_contract,
         "--root",
@@ -264,14 +265,18 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
 
 "#]]);
-});
+    }
+);
 
 // Tests that the manually specified gas limit is used.
-forgetest_async!(#[ignore = "tempo skip - uses Ethereum archive RPC which lacks Tempo block fields"] can_execute_script_command_with_manual_gas_limit, |prj, cmd| {
-    foundry_test_utils::util::initialize(prj.root());
-    let deploy_script = prj.add_source(
-        "Foo",
-        r#"
+forgetest_async!(
+    #[ignore = "tempo skip - uses Ethereum archive RPC which lacks Tempo block fields"]
+    can_execute_script_command_with_manual_gas_limit,
+    |prj, cmd| {
+        foundry_test_utils::util::initialize(prj.root());
+        let deploy_script = prj.add_source(
+            "Foo",
+            r#"
 import "forge-std/Script.sol";
 
 contract GasWaster {
@@ -287,17 +292,18 @@ contract DeployScript is Script {
     }
 }
    "#,
-    );
+        );
 
-    let deploy_contract = deploy_script.display().to_string() + ":DeployScript";
+        let deploy_contract = deploy_script.display().to_string() + ":DeployScript";
 
-    let node_config = NodeConfig::test().with_eth_rpc_url(Some(rpc::next_http_archive_rpc_url()));
-    let (_api, handle) = spawn(node_config).await;
-    let private_key =
-        "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80".to_string();
-    cmd.set_current_dir(prj.root());
+        let node_config =
+            NodeConfig::test().with_eth_rpc_url(Some(rpc::next_http_archive_rpc_url()));
+        let (_api, handle) = spawn(node_config).await;
+        let private_key =
+            "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80".to_string();
+        cmd.set_current_dir(prj.root());
 
-    cmd.args([
+        cmd.args([
         "script",
         &deploy_contract,
         "--root",
@@ -372,7 +378,8 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
 
 "#]]);
-});
+    }
+);
 
 // Tests that the run command can run functions with arguments
 forgetest!(can_execute_script_command_with_args, |prj, cmd| {
@@ -735,17 +742,21 @@ forgetest_async!(can_deploy_script_private_key, |prj, cmd| {
         .await;
 });
 
-forgetest_async!(#[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"] can_deploy_unlocked, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
-    let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
+forgetest_async!(
+    #[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"]
+    can_deploy_unlocked,
+    |prj, cmd| {
+        let (_api, handle) = spawn(NodeConfig::test()).await;
+        let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
-    tester
-        .sender("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".parse().unwrap())
-        .unlocked()
-        .add_sig("BroadcastTest", "deployOther()")
-        .simulate(ScriptOutcome::OkSimulation)
-        .broadcast(ScriptOutcome::OkBroadcast);
-});
+        tester
+            .sender("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".parse().unwrap())
+            .unlocked()
+            .add_sig("BroadcastTest", "deployOther()")
+            .simulate(ScriptOutcome::OkSimulation)
+            .broadcast(ScriptOutcome::OkBroadcast);
+    }
+);
 
 forgetest_async!(can_deploy_script_remember_key, |prj, cmd| {
     let (_api, handle) = spawn(NodeConfig::test()).await;
@@ -806,32 +817,40 @@ forgetest_async!(can_resume_script, |prj, cmd| {
         .await;
 });
 
-forgetest_async!(#[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"] can_deploy_broadcast_wrap, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
-    let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
+forgetest_async!(
+    #[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"]
+    can_deploy_broadcast_wrap,
+    |prj, cmd| {
+        let (_api, handle) = spawn(NodeConfig::test()).await;
+        let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
-    tester
-        .add_deployer(2)
-        .load_private_keys(&[0, 1, 2])
-        .await
-        .add_sig("BroadcastTest", "deployOther()")
-        .simulate(ScriptOutcome::OkSimulation)
-        .broadcast(ScriptOutcome::OkBroadcast)
-        .assert_nonce_increment(&[(0, 4), (1, 4), (2, 1)])
-        .await;
-});
+        tester
+            .add_deployer(2)
+            .load_private_keys(&[0, 1, 2])
+            .await
+            .add_sig("BroadcastTest", "deployOther()")
+            .simulate(ScriptOutcome::OkSimulation)
+            .broadcast(ScriptOutcome::OkBroadcast)
+            .assert_nonce_increment(&[(0, 4), (1, 4), (2, 1)])
+            .await;
+    }
+);
 
-forgetest_async!(#[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"] panic_no_deployer_set, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
-    let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
+forgetest_async!(
+    #[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"]
+    panic_no_deployer_set,
+    |prj, cmd| {
+        let (_api, handle) = spawn(NodeConfig::test()).await;
+        let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
-    tester
-        .load_private_keys(&[0, 1])
-        .await
-        .add_sig("BroadcastTest", "deployOther()")
-        .simulate(ScriptOutcome::WarnSpecifyDeployer)
-        .broadcast(ScriptOutcome::MissingSender);
-});
+        tester
+            .load_private_keys(&[0, 1])
+            .await
+            .add_sig("BroadcastTest", "deployOther()")
+            .simulate(ScriptOutcome::WarnSpecifyDeployer)
+            .broadcast(ScriptOutcome::MissingSender);
+    }
+);
 
 forgetest_async!(can_deploy_no_arg_broadcast, |prj, cmd| {
     let (_api, handle) = spawn(NodeConfig::test()).await;
@@ -848,94 +867,110 @@ forgetest_async!(can_deploy_no_arg_broadcast, |prj, cmd| {
         .await;
 });
 
-forgetest_async!(#[ignore = "tempo skip - create2 duplicate detection behavior differs"] can_deploy_with_create2, |prj, cmd| {
-    let (api, handle) = spawn(NodeConfig::test()).await;
-    let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
+forgetest_async!(
+    #[ignore = "tempo skip - create2 duplicate detection behavior differs"]
+    can_deploy_with_create2,
+    |prj, cmd| {
+        let (api, handle) = spawn(NodeConfig::test()).await;
+        let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
-    // Prepare CREATE2 Deployer
-    api.anvil_set_code(
-        foundry_evm::constants::DEFAULT_CREATE2_DEPLOYER,
-        Bytes::from_static(foundry_evm::constants::DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE),
-    )
-    .await
-    .unwrap();
-
-    tester
-        .add_deployer(0)
-        .load_private_keys(&[0])
+        // Prepare CREATE2 Deployer
+        api.anvil_set_code(
+            foundry_evm::constants::DEFAULT_CREATE2_DEPLOYER,
+            Bytes::from_static(foundry_evm::constants::DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE),
+        )
         .await
-        .add_sig("BroadcastTestNoLinking", "deployCreate2()")
-        .simulate(ScriptOutcome::OkSimulation)
-        .broadcast(ScriptOutcome::OkBroadcast)
-        .assert_nonce_increment(&[(0, 2)])
+        .unwrap();
+
+        tester
+            .add_deployer(0)
+            .load_private_keys(&[0])
+            .await
+            .add_sig("BroadcastTestNoLinking", "deployCreate2()")
+            .simulate(ScriptOutcome::OkSimulation)
+            .broadcast(ScriptOutcome::OkBroadcast)
+            .assert_nonce_increment(&[(0, 2)])
+            .await
+            // Running again results in error, since we're repeating the salt passed to CREATE2
+            .run(ScriptOutcome::ScriptFailed);
+    }
+);
+
+forgetest_async!(
+    #[ignore = "tempo skip - create2 with custom deployer behavior differs"]
+    can_deploy_with_custom_create2,
+    |prj, cmd| {
+        let (api, handle) = spawn(NodeConfig::test()).await;
+        let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
+        let create2 = address!("0x0000000000000000000000000000000000b4956c");
+
+        // Prepare CREATE2 Deployer
+        api.anvil_set_code(
+            create2,
+            Bytes::from_static(foundry_evm::constants::DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE),
+        )
         .await
-        // Running again results in error, since we're repeating the salt passed to CREATE2
-        .run(ScriptOutcome::ScriptFailed);
-});
+        .unwrap();
 
-forgetest_async!(#[ignore = "tempo skip - create2 with custom deployer behavior differs"] can_deploy_with_custom_create2, |prj, cmd| {
-    let (api, handle) = spawn(NodeConfig::test()).await;
-    let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
-    let create2 = address!("0x0000000000000000000000000000000000b4956c");
+        tester
+            .add_deployer(0)
+            .load_private_keys(&[0])
+            .await
+            .add_create2_deployer(create2)
+            .add_sig("BroadcastTestNoLinking", "deployCreate2(address)")
+            .arg(&create2.to_string())
+            .simulate(ScriptOutcome::OkSimulation)
+            .broadcast(ScriptOutcome::OkBroadcast)
+            .assert_nonce_increment(&[(0, 2)])
+            .await;
+    }
+);
 
-    // Prepare CREATE2 Deployer
-    api.anvil_set_code(
-        create2,
-        Bytes::from_static(foundry_evm::constants::DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE),
-    )
-    .await
-    .unwrap();
+forgetest_async!(
+    #[ignore = "tempo skip - create2 bytecode matching behavior differs"]
+    can_deploy_with_custom_create2_notmatched_bytecode,
+    |prj, cmd| {
+        let (api, handle) = spawn(NodeConfig::test()).await;
+        let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
+        let create2 = address!("0x0000000000000000000000000000000000b4956c");
 
-    tester
-        .add_deployer(0)
-        .load_private_keys(&[0])
-        .await
-        .add_create2_deployer(create2)
-        .add_sig("BroadcastTestNoLinking", "deployCreate2(address)")
-        .arg(&create2.to_string())
-        .simulate(ScriptOutcome::OkSimulation)
-        .broadcast(ScriptOutcome::OkBroadcast)
-        .assert_nonce_increment(&[(0, 2)])
-        .await;
-});
-
-forgetest_async!(#[ignore = "tempo skip - create2 bytecode matching behavior differs"] can_deploy_with_custom_create2_notmatched_bytecode, |prj, cmd| {
-    let (api, handle) = spawn(NodeConfig::test()).await;
-    let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
-    let create2 = address!("0x0000000000000000000000000000000000b4956c");
-
-    // Prepare CREATE2 Deployer
-    api.anvil_set_code(
+        // Prepare CREATE2 Deployer
+        api.anvil_set_code(
         create2,
         Bytes::from_static(&hex!("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cef")),
     )
     .await
     .unwrap();
 
-    tester
-        .add_deployer(0)
-        .load_private_keys(&[0])
-        .await
-        .add_create2_deployer(create2)
-        .add_sig("BroadcastTestNoLinking", "deployCreate2()")
-        .simulate(ScriptOutcome::ScriptFailed)
-        .broadcast(ScriptOutcome::ScriptFailed);
-});
+        tester
+            .add_deployer(0)
+            .load_private_keys(&[0])
+            .await
+            .add_create2_deployer(create2)
+            .add_sig("BroadcastTestNoLinking", "deployCreate2()")
+            .simulate(ScriptOutcome::ScriptFailed)
+            .broadcast(ScriptOutcome::ScriptFailed);
+    }
+);
 
-forgetest_async!(#[ignore = "tempo skip - create2 error detection behavior differs"] cannot_deploy_with_nonexist_create2, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
-    let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
-    let create2 = address!("0x0000000000000000000000000000000000b4956c");
+forgetest_async!(
+    #[ignore = "tempo skip - create2 error detection behavior differs"]
+    cannot_deploy_with_nonexist_create2,
+    |prj, cmd| {
+        let (_api, handle) = spawn(NodeConfig::test()).await;
+        let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
+        let create2 = address!("0x0000000000000000000000000000000000b4956c");
 
-    tester
-        .add_deployer(0)
-        .load_private_keys(&[0])
-        .await
-        .add_create2_deployer(create2)
-        .add_sig("BroadcastTestNoLinking", "deployCreate2()")
-        .simulate(ScriptOutcome::ScriptFailed)
-        .broadcast(ScriptOutcome::ScriptFailed);
-});
+        tester
+            .add_deployer(0)
+            .load_private_keys(&[0])
+            .await
+            .add_create2_deployer(create2)
+            .add_sig("BroadcastTestNoLinking", "deployCreate2()")
+            .simulate(ScriptOutcome::ScriptFailed)
+            .broadcast(ScriptOutcome::ScriptFailed);
+    }
+);
 
 forgetest_async!(can_deploy_and_simulate_25_txes_concurrently, |prj, cmd| {
     let (_api, handle) = spawn(NodeConfig::test()).await;
@@ -2005,20 +2040,24 @@ Chain 31337
 
 ...
 
-"#]]).stderr_eq(str![[r#"
+"#]])
+    .stderr_eq(str![[r#"
 ...
 "#]]);
 });
 
 // https://github.com/foundry-rs/foundry/issues/7833
-forgetest_async!(#[ignore = "tempo skip - create2 error detection behavior differs"] error_no_create2, |prj, cmd| {
-    let (_api, handle) =
-        spawn(NodeConfig::test().with_disable_default_create2_deployer(true)).await;
+forgetest_async!(
+    #[ignore = "tempo skip - create2 error detection behavior differs"]
+    error_no_create2,
+    |prj, cmd| {
+        let (_api, handle) =
+            spawn(NodeConfig::test().with_disable_default_create2_deployer(true)).await;
 
-    foundry_test_utils::util::initialize(prj.root());
-    prj.add_script(
-        "Foo",
-        r#"
+        foundry_test_utils::util::initialize(prj.root());
+        prj.add_script(
+            "Foo",
+            r#"
 import "forge-std/Script.sol";
 
 contract SimpleContract {}
@@ -2030,22 +2069,23 @@ contract SimpleScript is Script {
     }
 }
    "#,
-    );
+        );
 
-    cmd.args([
-        "script",
-        "SimpleScript",
-        "--fork-url",
-        &handle.http_endpoint(),
-        "--broadcast",
-        "--unlocked",
-    ]);
+        cmd.args([
+            "script",
+            "SimpleScript",
+            "--fork-url",
+            &handle.http_endpoint(),
+            "--broadcast",
+            "--unlocked",
+        ]);
 
-    cmd.assert_failure().stderr_eq(str![[r#"
+        cmd.assert_failure().stderr_eq(str![[r#"
 Error: script failed: missing CREATE2 deployer: 0x4e59b44847b379578588920cA78FbF26c0B4956C
 
 "#]]);
-});
+    }
+);
 
 forgetest_async!(can_switch_forks_in_setup, |prj, cmd| {
     let (_api, handle) =
@@ -2155,11 +2195,15 @@ forgetest_async!(can_deploy_library_create2_different_sender, |prj, cmd| {
 });
 
 // <https://github.com/foundry-rs/foundry/issues/8993>
-forgetest_async!(#[ignore = "tempo skip - broadcastRawTransaction missing from field"] test_broadcast_raw_create2_deployer, |prj, cmd| {
-    let (api, handle) = spawn(NodeConfig::test().with_disable_default_create2_deployer(true)).await;
+forgetest_async!(
+    #[ignore = "tempo skip - broadcastRawTransaction missing from field"]
+    test_broadcast_raw_create2_deployer,
+    |prj, cmd| {
+        let (api, handle) =
+            spawn(NodeConfig::test().with_disable_default_create2_deployer(true)).await;
 
-    foundry_test_utils::util::initialize(prj.root());
-    prj.add_script(
+        foundry_test_utils::util::initialize(prj.root());
+        prj.add_script(
         "Foo",
         r#"
 import "forge-std/Script.sol";
@@ -2178,18 +2222,18 @@ contract SimpleScript is Script {
    "#,
     );
 
-    cmd.args([
-        "script",
-        "--private-key",
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        "--rpc-url",
-        &handle.http_endpoint(),
-        "--broadcast",
-        "--slow",
-        "SimpleScript",
-    ]);
+        cmd.args([
+            "script",
+            "--private-key",
+            "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+            "--rpc-url",
+            &handle.http_endpoint(),
+            "--broadcast",
+            "--slow",
+            "SimpleScript",
+        ]);
 
-    cmd.assert_success().stdout_eq(str![[r#"
+        cmd.assert_success().stdout_eq(str![[r#"
 [COMPILING_FILES] with [SOLC_VERSION]
 [SOLC_VERSION] [ELAPSED]
 Compiler run successful!
@@ -2221,13 +2265,17 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
 "#]]);
 
-    assert!(
-        !api.get_code(address!("0x4e59b44847b379578588920cA78FbF26c0B4956C"), Default::default())
+        assert!(
+            !api.get_code(
+                address!("0x4e59b44847b379578588920cA78FbF26c0B4956C"),
+                Default::default()
+            )
             .await
             .unwrap()
             .is_empty()
-    );
-});
+        );
+    }
+);
 
 forgetest_init!(can_get_script_wallets, |prj, cmd| {
     let script = prj.add_source(
@@ -3286,11 +3334,14 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 "#]]);
 });
 
-forgetest_async!(#[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"] flaky_can_deploy_with_broadcast_in_setup, |prj, cmd| {
-    foundry_test_utils::util::initialize(prj.root());
-    prj.add_script(
-        "Deploy.s.sol",
-        r#"
+forgetest_async!(
+    #[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"]
+    flaky_can_deploy_with_broadcast_in_setup,
+    |prj, cmd| {
+        foundry_test_utils::util::initialize(prj.root());
+        prj.add_script(
+            "Deploy.s.sol",
+            r#"
 import "forge-std/Script.sol";
 import {Vm} from "forge-std/Vm.sol";
 contract DeployScript is Script {
@@ -3305,23 +3356,23 @@ contract DeployScript is Script {
     }
 }
    "#,
-    );
+        );
 
-    let node_config = NodeConfig::test().with_hardfork(Some(EthereumHardfork::Prague.into()));
-    let (_api, handle) = spawn(node_config).await;
+        let node_config = NodeConfig::test().with_hardfork(Some(EthereumHardfork::Prague.into()));
+        let (_api, handle) = spawn(node_config).await;
 
-    cmd.args([
-        "script",
-        "script/Deploy.s.sol:DeployScript",
-        "--rpc-url",
-        &handle.http_endpoint(),
-        "-vvvv",
-        "--broadcast",
-        "--private-key",
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    ])
-    .assert_success()
-    .stdout_eq(str![[r#"
+        cmd.args([
+            "script",
+            "script/Deploy.s.sol:DeployScript",
+            "--rpc-url",
+            &handle.http_endpoint(),
+            "-vvvv",
+            "--broadcast",
+            "--private-key",
+            "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+        ])
+        .assert_success()
+        .stdout_eq(str![[r#"
 [COMPILING_FILES] with [SOLC_VERSION]
 [SOLC_VERSION] [ELAPSED]
 Compiler run successful!
@@ -3367,7 +3418,8 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
 
 "#]]);
-});
+    }
+);
 
 // <https://github.com/foundry-rs/foundry/issues/12151>
 forgetest_async!(can_execute_script_with_createx_and_via_ir, |prj, cmd| {

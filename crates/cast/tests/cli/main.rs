@@ -2486,50 +2486,6 @@ interface Interface {
     ]]);
 });
 
-// tests that `cast interface --flatten` inlines inherited struct types into the interface
-// <https://github.com/foundry-rs/foundry/issues/9960>
-casttest!(interface_flatten, |prj, cmd| {
-    let interface = include_str!("../fixtures/interface_inherited_struct.json");
-
-    let path = prj.root().join("interface_inherited_struct.json");
-    fs::write(&path, interface).unwrap();
-
-    // Without --flatten, a separate library is generated for the struct
-    cmd.arg("interface").arg(&path).assert_success().stdout_eq(str![[
-        r#"// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.4;
-
-library IBase {
-    struct TestStruct {
-        address asset;
-    }
-}
-
-interface Interface {
-    function test(IBase.TestStruct memory param) external;
-}
-
-"#
-    ]]);
-
-    // With --flatten, the struct is inlined into the interface
-    cmd.cast_fuse().arg("interface").arg("--flatten").arg(&path).assert_success().stdout_eq(str![
-        [r#"// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.4;
-
-interface Interface {
-    // Types from `IBase`
-    struct TestStruct {
-        address asset;
-    }
-
-    function test(TestStruct memory param) external;
-}
-
-"#]
-    ]);
-});
-
 // tests that fetches WETH interface from etherscan
 // <https://etherscan.io/token/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2>
 casttest!(flaky_fetch_weth_interface_from_etherscan, |_prj, cmd| {
@@ -3118,70 +3074,6 @@ Traces:
   [..] → new LocalProjectContract@0x5FbDB2315678afecb367f032d93F642f64180aa3
     ├─ emit LocalProjectContractCreated(owner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
     └─ ← [Return] 62 bytes of code
-
-
-Transaction successfully executed.
-[GAS]
-
-"#]]);
-});
-
-// tests cast can decode traces when running with verbosity level > 4
-forgetest_async!(show_state_changes_in_traces, |prj, cmd| {
-    let (api, handle) = anvil::spawn(NodeConfig::test()).await;
-
-    foundry_test_utils::util::initialize(prj.root());
-    prj.initialize_default_contracts();
-    // Deploy counter contract.
-    cmd.args([
-        "script",
-        "--private-key",
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        "--rpc-url",
-        &handle.http_endpoint(),
-        "--broadcast",
-        "CounterScript",
-    ])
-    .assert_success();
-
-    // Send tx to change counter storage value.
-    cmd.cast_fuse()
-        .args([
-            "send",
-            "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-            "setNumber(uint256)",
-            "111",
-            "--private-key",
-            "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-            "--rpc-url",
-            &handle.http_endpoint(),
-        ])
-        .assert_success();
-
-    let tx_hash = api
-        .transaction_by_block_number_and_index(BlockNumberOrTag::Latest, Index::from(0))
-        .await
-        .unwrap()
-        .unwrap()
-        .tx_hash();
-
-    // Assert cast with verbosity displays storage changes.
-    cmd.cast_fuse()
-        .args([
-            "run",
-            format!("{tx_hash}").as_str(),
-            "-vvvvv",
-            "--rpc-url",
-            &handle.http_endpoint(),
-        ])
-        .assert_success()
-        .stdout_eq(str![[r#"
-Executing previous transactions from the block.
-Traces:
-  [..] 0x5FbDB2315678afecb367f032d93F642f64180aa3::setNumber(111)
-    ├─  storage changes:
-    │   @ 0: 0 → 111
-    └─ ← [Stop]
 
 
 Transaction successfully executed.

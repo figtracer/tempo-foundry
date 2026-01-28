@@ -87,7 +87,7 @@ impl ExecutedTransaction {
                 FoundryReceiptEnvelope::Deposit(op_alloy_consensus::OpDepositReceiptWithBloom {
                     receipt: op_alloy_consensus::OpDepositReceipt {
                         inner: receipt_with_bloom.receipt,
-                        deposit_nonce: Some(self.nonce),
+                        deposit_nonce: Some(0),
                         deposit_receipt_version: Some(1),
                     },
                     logs_bloom: receipt_with_bloom.logs_bloom,

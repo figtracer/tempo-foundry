@@ -818,27 +818,27 @@ impl Backend {
 
     /// Returns true for post London
     pub fn is_eip1559(&self) -> bool {
-        self.is_tempo() || (self.spec_id() as u8) >= (SpecId::LONDON as u8)
+        (self.spec_id() as u8) >= (SpecId::LONDON as u8)
     }
 
     /// Returns true for post Merge
     pub fn is_eip3675(&self) -> bool {
-        self.is_tempo() || (self.spec_id() as u8) >= (SpecId::MERGE as u8)
+        (self.spec_id() as u8) >= (SpecId::MERGE as u8)
     }
 
     /// Returns true for post Berlin
     pub fn is_eip2930(&self) -> bool {
-        self.is_tempo() || (self.spec_id() as u8) >= (SpecId::BERLIN as u8)
+        (self.spec_id() as u8) >= (SpecId::BERLIN as u8)
     }
 
     /// Returns true for post Cancun
     pub fn is_eip4844(&self) -> bool {
-        self.is_tempo() || (self.spec_id() as u8) >= (SpecId::CANCUN as u8)
+        (self.spec_id() as u8) >= (SpecId::CANCUN as u8)
     }
 
     /// Returns true for post Prague
     pub fn is_eip7702(&self) -> bool {
-        self.is_tempo() || (self.spec_id() as u8) >= (SpecId::PRAGUE as u8)
+        (self.spec_id() as u8) >= (SpecId::PRAGUE as u8)
     }
 
     /// Returns true if op-stack deposits are active
@@ -873,11 +873,10 @@ impl Backend {
         let mut system_contracts = BTreeMap::<SystemContract, Address>::default();
         let spec_id = self.spec_id();
 
-        // Tempo is always post-OSAKA, so both CANCUN and PRAGUE system contracts apply
-        if self.is_tempo() || (spec_id as u8) >= (SpecId::CANCUN as u8) {
+        if (spec_id as u8) >= (SpecId::CANCUN as u8) {
             system_contracts.extend(SystemContract::cancun());
         }
-        if self.is_tempo() || (spec_id as u8) >= (SpecId::PRAGUE as u8) {
+        if (spec_id as u8) >= (SpecId::PRAGUE as u8) {
             system_contracts.extend(SystemContract::prague(None));
         }
 
@@ -886,8 +885,7 @@ impl Backend {
 
     /// Returns [`BlobParams`] corresponding to the current spec.
     pub fn blob_params(&self) -> BlobParams {
-        // Tempo is always post-OSAKA
-        if self.is_tempo() || (self.spec_id() as u8) >= (SpecId::OSAKA as u8) {
+        if (self.spec_id() as u8) >= (SpecId::OSAKA as u8) {
             return BlobParams::osaka();
         }
         if (self.spec_id() as u8) >= (SpecId::PRAGUE as u8) {

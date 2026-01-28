@@ -458,7 +458,7 @@ impl Backend {
 
         // Initialize Tempo precompiles and fee tokens when in Tempo mode (not in fork mode)
         // In fork mode, precompiles are inherited from the forked origin
-        if self.env.read().networks.is_tempo() && !self.is_fork() {
+        if self.is_tempo() && !self.is_fork() {
             let chain_id = self.env.read().evm_env.cfg_env.chain_id;
             let timestamp = self.genesis.timestamp;
             let mut db = self.db.write().await;
@@ -811,29 +811,34 @@ impl Backend {
         self.hardfork().into()
     }
 
-    /// Returns true for post London (all Tempo hardforks are post-London)
+    /// Returns true if running in Tempo mode
+    pub fn is_tempo(&self) -> bool {
+        self.env.read().networks.is_tempo()
+    }
+
+    /// Returns true for post London
     pub fn is_eip1559(&self) -> bool {
-        true // Tempo hardforks are all post-OSAKA which is post-London
+        self.is_tempo() || (self.spec_id() as u8) >= (SpecId::LONDON as u8)
     }
 
-    /// Returns true for post Merge (all Tempo hardforks are post-Merge)
+    /// Returns true for post Merge
     pub fn is_eip3675(&self) -> bool {
-        true // Tempo hardforks are all post-OSAKA which is post-Merge
+        self.is_tempo() || (self.spec_id() as u8) >= (SpecId::MERGE as u8)
     }
 
-    /// Returns true for post Berlin (all Tempo hardforks are post-Berlin)
+    /// Returns true for post Berlin
     pub fn is_eip2930(&self) -> bool {
-        true // Tempo hardforks are all post-OSAKA which is post-Berlin
+        self.is_tempo() || (self.spec_id() as u8) >= (SpecId::BERLIN as u8)
     }
 
-    /// Returns true for post Cancun (all Tempo hardforks are post-Cancun)
+    /// Returns true for post Cancun
     pub fn is_eip4844(&self) -> bool {
-        true // Tempo hardforks are all post-OSAKA which is post-Cancun
+        self.is_tempo() || (self.spec_id() as u8) >= (SpecId::CANCUN as u8)
     }
 
-    /// Returns true for post Prague (all Tempo hardforks are post-Prague)
+    /// Returns true for post Prague
     pub fn is_eip7702(&self) -> bool {
-        true // Tempo hardforks are all post-OSAKA which is post-Prague
+        self.is_tempo() || (self.spec_id() as u8) >= (SpecId::PRAGUE as u8)
     }
 
     /// Returns true if op-stack deposits are active
@@ -920,7 +925,7 @@ impl Backend {
 
     /// Returns an error if Tempo transactions are not active
     pub fn ensure_tempo_active(&self) -> Result<(), BlockchainError> {
-        if self.env.read().networks.is_tempo() {
+        if self.is_tempo() {
             return Ok(());
         }
         Err(BlockchainError::TempoTransactionUnsupported)
@@ -2428,7 +2433,7 @@ impl Backend {
 
         // Add Tempo-specific fields for compatibility with TempoNetwork provider.
         // Only add these when running in Tempo mode.
-        if self.env.read().networks.is_tempo() {
+        if self.is_tempo() {
             // Since Anvil doesn't store sub-second precision, timestampMillis = timestamp * 1000.
             let timestamp = block.header.inner.timestamp();
             let gas_limit = block.header.inner.gas_limit();

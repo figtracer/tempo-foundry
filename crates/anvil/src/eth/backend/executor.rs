@@ -461,36 +461,6 @@ fn build_logs_bloom(logs: &[Log], bloom: &mut Bloom) {
     }
 }
 
-/// Maps a SpecId to the most appropriate OpSpecId.
-///
-/// This is used to derive OP hardfork params when running in Optimism mode.
-/// The mapping selects the latest OP hardfork that corresponds to the given ETH spec.
-fn spec_id_to_op_spec_id(spec_id: SpecId) -> op_revm::OpSpecId {
-    match spec_id {
-        SpecId::FRONTIER
-        | SpecId::FRONTIER_THAWING
-        | SpecId::HOMESTEAD
-        | SpecId::DAO_FORK
-        | SpecId::TANGERINE
-        | SpecId::SPURIOUS_DRAGON
-        | SpecId::BYZANTIUM
-        | SpecId::CONSTANTINOPLE
-        | SpecId::PETERSBURG
-        | SpecId::ISTANBUL
-        | SpecId::MUIR_GLACIER
-        | SpecId::BERLIN
-        | SpecId::LONDON
-        | SpecId::ARROW_GLACIER
-        | SpecId::GRAY_GLACIER
-        | SpecId::MERGE => op_revm::OpSpecId::REGOLITH,
-        SpecId::SHANGHAI => op_revm::OpSpecId::CANYON,
-        SpecId::CANCUN => op_revm::OpSpecId::HOLOCENE,
-        SpecId::PRAGUE => op_revm::OpSpecId::ISTHMUS,
-        SpecId::OSAKA => op_revm::OpSpecId::OSAKA,
-        _ => op_revm::OpSpecId::ISTHMUS,
-    }
-}
-
 /// Creates a database with given database and inspector.
 pub fn new_evm_with_inspector<DB, I>(
     db: DB,
@@ -501,44 +471,22 @@ where
     DB: Database<Error = DatabaseError> + Debug,
     I: Inspector<EthEvmContext<DB>> + Inspector<OpContext<DB>>,
 {
-    // Convert TempoHardfork to SpecId for hardfork detection
-    let spec_id: SpecId = env.evm_env.cfg_env.spec.into();
-
     if env.networks.is_optimism() {
-        // Map the Ethereum SpecId to the corresponding OpSpecId
-        let op_spec_id = spec_id_to_op_spec_id(spec_id);
-
-        // Build OpSpecId-based CfgEnv with all fields from the original
-        let mut cfg_env: revm::context::CfgEnv<op_revm::OpSpecId> =
-            revm::context::CfgEnv::<op_revm::OpSpecId>::default()
-                .with_spec_and_mainnet_gas_params(op_spec_id);
-        cfg_env.chain_id = env.evm_env.cfg_env.chain_id;
-        cfg_env.tx_gas_limit_cap = env.evm_env.cfg_env.tx_gas_limit_cap;
-        cfg_env.memory_limit = env.evm_env.cfg_env.memory_limit;
-        cfg_env.limit_contract_code_size = env.evm_env.cfg_env.limit_contract_code_size;
-        cfg_env.disable_nonce_check = env.evm_env.cfg_env.disable_nonce_check;
-        cfg_env.disable_balance_check = env.evm_env.cfg_env.disable_balance_check;
-        cfg_env.disable_base_fee = env.evm_env.cfg_env.disable_base_fee;
-        cfg_env.disable_block_gas_limit = env.evm_env.cfg_env.disable_block_gas_limit;
-        cfg_env.disable_eip3607 = env.evm_env.cfg_env.disable_eip3607;
-
-        let evm_env = EvmEnv::new(cfg_env, env.evm_env.block_env.inner.clone());
+        let evm_env = EvmEnv::new(
+            env.evm_env
+                .cfg_env
+                .clone()
+                .with_spec_and_mainnet_gas_params(op_revm::OpSpecId::ISTHMUS),
+            env.evm_env.block_env.inner.clone(),
+        );
         EitherEvm::Op(OpEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
     } else {
-        // Build SpecId-based CfgEnv with all fields from the original
-        let mut cfg_env: revm::context::CfgEnv<SpecId> =
-            revm::context::CfgEnv::<SpecId>::default().with_spec_and_mainnet_gas_params(spec_id);
-        cfg_env.chain_id = env.evm_env.cfg_env.chain_id;
-        cfg_env.tx_gas_limit_cap = env.evm_env.cfg_env.tx_gas_limit_cap;
-        cfg_env.memory_limit = env.evm_env.cfg_env.memory_limit;
-        cfg_env.limit_contract_code_size = env.evm_env.cfg_env.limit_contract_code_size;
-        cfg_env.disable_nonce_check = env.evm_env.cfg_env.disable_nonce_check;
-        cfg_env.disable_balance_check = env.evm_env.cfg_env.disable_balance_check;
-        cfg_env.disable_base_fee = env.evm_env.cfg_env.disable_base_fee;
-        cfg_env.disable_block_gas_limit = env.evm_env.cfg_env.disable_block_gas_limit;
-        cfg_env.disable_eip3607 = env.evm_env.cfg_env.disable_eip3607;
-
-        let evm_env = EvmEnv::new(cfg_env, env.evm_env.block_env.inner.clone());
+        // Convert TempoHardfork-based env to SpecId-based env for non-Optimism chains
+        let spec_id: SpecId = env.evm_env.cfg_env.spec.into();
+        let evm_env = EvmEnv::new(
+            env.evm_env.cfg_env.clone().with_spec_and_mainnet_gas_params(spec_id),
+            env.evm_env.block_env.inner.clone(),
+        );
         EitherEvm::Eth(EthEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
     }
 }

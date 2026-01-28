@@ -13,6 +13,10 @@ use revm::state::{AccountInfo, Bytecode};
 use std::collections::HashMap;
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_precompiles::{
+    account_keychain::{
+        AccountKeychain,
+        IAccountKeychain::{SignatureType, authorizeKeyCall},
+    },
     error::TempoPrecompileError,
     storage::{PrecompileStorageProvider, StorageCtx},
     tip20::{ITIP20, TIP20Token},
@@ -198,12 +202,31 @@ pub fn initialize_tempo_precompiles(
     let tokens = [PATH_USD, ALPHA_USD, BETA_USD, THETA_USD];
 
     StorageCtx::enter(&mut storage, || -> Result<(), TempoPrecompileError> {
+        // Mint fee tokens to test accounts
         for &token_address in &tokens {
             let mut token = TIP20Token::from_address(token_address)?;
             for &account in test_accounts {
                 token.mint(ADMIN, ITIP20::mintCall { to: account, amount: mint_amount })?;
             }
         }
+
+        // Register secp256k1 keys for test accounts in the AccountKeychain
+        // This allows them to sign Tempo transactions using their private keys.
+        // The key ID is the account address itself (standard for secp256k1 keys).
+        let mut keychain = AccountKeychain::new();
+        for &account in test_accounts {
+            keychain.authorize_key(
+                account, // msg_sender (root account authorizes its own key)
+                authorizeKeyCall {
+                    keyId: account, // key ID = account address for secp256k1
+                    signatureType: SignatureType::Secp256k1,
+                    expiry: u64::MAX,     // never expires
+                    enforceLimits: false, // no spending limits
+                    limits: vec![],
+                },
+            )?;
+        }
+
         Ok(())
     })?;
 

@@ -1,11 +1,11 @@
 use alloy_evm::{Database, EthEvm, Evm, EvmEnv, eth::EthEvmContext, precompiles::PrecompilesMap};
 use alloy_op_evm::OpEvm;
 use alloy_primitives::{Address, Bytes};
-use op_revm::{OpContext, OpHaltReason, OpSpecId, OpTransaction, OpTransactionError};
+use op_revm::{OpContext, OpHaltReason, OpSpecId, OpTransactionError};
 use revm::{
     DatabaseCommit, Inspector,
     context::{
-        BlockEnv, TxEnv,
+        BlockEnv,
         result::{EVMError, ExecResultAndState, ExecutionResult, HaltReason, ResultAndState},
     },
     handler::PrecompileProvider,
@@ -13,6 +13,8 @@ use revm::{
     primitives::hardfork::SpecId,
 };
 use tempo_revm::{TempoHaltReason, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext};
+
+pub use foundry_primitives::EitherTx;
 
 /// Alias for result type returned by [`Evm::transact`] methods.
 type EitherEvmResult<DBError, HaltReason, TxError> =
@@ -168,7 +170,7 @@ where
     type DB = DB;
     type Error = EVMError<DB::Error, OpTransactionError>;
     type HaltReason = OpHaltReason;
-    type Tx = OpTransaction<TxEnv>;
+    type Tx = EitherTx;
     type Inspector = I;
     type Precompiles = P;
     type Spec = SpecId;
@@ -352,17 +354,18 @@ where
         &mut self,
         tx: impl alloy_evm::IntoTxEnv<Self::Tx>,
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
+        let tx_env = tx.into_tx_env();
         match self {
             Self::Eth(evm) => {
-                let eth = evm.transact(tx.into_tx_env().base);
+                let eth = evm.transact(tx_env.base.base);
                 self.map_eth_result(eth)
             }
-            Self::Op(evm) => evm.transact(tx),
+            Self::Op(evm) => evm.transact(tx_env.base),
             Self::Tempo(evm) => {
                 use revm::ExecuteEvm;
-                let tx_env = tx.into_tx_env();
-                // Convert OpTransaction<TxEnv> to TempoTxEnv
-                let tempo_tx = TempoTxEnv::from(tx_env.base);
+                // Use tempo_tx if present (Tempo AA transactions), otherwise convert from base
+                let tempo_tx =
+                    tx_env.tempo_tx.unwrap_or_else(|| TempoTxEnv::from(tx_env.base.base));
                 let result = evm.transact(tempo_tx);
                 self.map_tempo_result(result)
             }
@@ -376,16 +379,19 @@ where
     where
         Self::DB: DatabaseCommit,
     {
+        let tx_env = tx.into_tx_env();
         match self {
             Self::Eth(evm) => {
-                let eth = evm.transact_commit(tx.into_tx_env().base);
+                let eth = evm.transact_commit(tx_env.base.base);
                 self.map_exec_result(eth)
             }
-            Self::Op(evm) => evm.transact_commit(tx),
+            Self::Op(evm) => evm.transact_commit(tx_env.base),
             Self::Tempo(evm) => {
                 use revm::ExecuteCommitEvm;
-                let tx_env = tx.into_tx_env();
-                let tempo_tx = TempoTxEnv::from(tx_env.base);
+                // Use tempo_tx if present (Tempo AA transactions), otherwise convert from base
+                let tempo_tx =
+                    tx_env.tempo_tx.unwrap_or_else(|| TempoTxEnv::from(tx_env.base.base));
+                tracing::warn!(target: "backend", has_tempo_tx_env = tempo_tx.tempo_tx_env.is_some(), "transact_commit tempo tx");
                 let result = evm.transact_commit(tempo_tx);
                 self.map_tempo_exec_result(result)
             }
@@ -398,13 +404,14 @@ where
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
         match self {
             Self::Eth(evm) => {
-                let res = evm.transact_raw(tx.base);
+                let res = evm.transact_raw(tx.base.base);
                 self.map_eth_result(res)
             }
-            Self::Op(evm) => evm.transact_raw(tx),
+            Self::Op(evm) => evm.transact_raw(tx.base),
             Self::Tempo(evm) => {
                 use revm::ExecuteEvm;
-                let tempo_tx = TempoTxEnv::from(tx.base);
+                // Use tempo_tx if present (Tempo AA transactions), otherwise convert from base
+                let tempo_tx = tx.tempo_tx.unwrap_or_else(|| TempoTxEnv::from(tx.base.base));
                 let result = evm.transact(tempo_tx);
                 self.map_tempo_result(result)
             }

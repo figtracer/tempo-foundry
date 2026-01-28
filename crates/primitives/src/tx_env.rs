@@ -12,6 +12,31 @@ use tempo_revm::TempoTxEnv;
 
 use crate::FoundryTxEnvelope;
 
+/// Transaction wrapper for `EitherEvm` that can hold Tempo-specific transaction data.
+///
+/// This preserves Tempo AA fields (valid_before, valid_after, nonce_key, etc.) that would
+/// otherwise be lost when converting through `OpTransaction<TxEnv>`.
+#[derive(Clone, Debug, Default)]
+pub struct EitherTx {
+    /// Base OP transaction (used for Eth and Op EVM variants).
+    pub base: OpTransaction<TxEnv>,
+    /// Tempo transaction environment (used for Tempo EVM variant).
+    /// When present, the Tempo EVM uses this directly instead of converting from `base`.
+    pub tempo_tx: Option<TempoTxEnv>,
+}
+
+impl IntoTxEnv<EitherTx> for EitherTx {
+    fn into_tx_env(self) -> EitherTx {
+        self
+    }
+}
+
+impl IntoTxEnv<EitherTx> for OpTransaction<TxEnv> {
+    fn into_tx_env(self) -> EitherTx {
+        EitherTx { base: self, tempo_tx: None }
+    }
+}
+
 /// A newtype wrapper around `TempoTxEnv` that implements conversions needed
 /// for compatibility with `EitherEvm`.
 ///
@@ -69,20 +94,21 @@ impl DerefMut for FoundryTempoTxEnv {
     }
 }
 
-/// Implementation of `IntoTxEnv<OpTransaction<TxEnv>>` for `FoundryTempoTxEnv`.
+/// Implementation of `IntoTxEnv<EitherTx>` for `FoundryTempoTxEnv`.
 ///
-/// This is a bridge implementation that allows `TempoTxEnv` (via the wrapper) to be
-/// used with `EitherEvm` which expects `OpTransaction<TxEnv>` as its transaction type.
-///
-/// Note: This conversion loses Tempo-specific fields (fee_token, tempo_tx_env, etc.)
-/// and should only be used until the anvil codebase is fully migrated to use
-/// Tempo-native EVM types.
-impl IntoTxEnv<OpTransaction<TxEnv>> for FoundryTempoTxEnv {
-    fn into_tx_env(self) -> OpTransaction<TxEnv> {
-        OpTransaction {
-            base: self.inner.inner,
-            enveloped_tx: self.enveloped_tx,
-            ..Default::default()
+/// This preserves Tempo-specific fields (fee_token, valid_before, valid_after, nonce_key, etc.)
+/// when executing Tempo transactions, while still providing the base `OpTransaction<TxEnv>`
+/// for Eth/Op variants.
+impl IntoTxEnv<EitherTx> for FoundryTempoTxEnv {
+    fn into_tx_env(self) -> EitherTx {
+        EitherTx {
+            base: OpTransaction {
+                base: self.inner.inner.clone(),
+                enveloped_tx: self.enveloped_tx,
+                ..Default::default()
+            },
+            // Preserve the full TempoTxEnv for Tempo EVM
+            tempo_tx: Some(self.inner),
         }
     }
 }

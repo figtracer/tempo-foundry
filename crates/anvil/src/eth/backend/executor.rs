@@ -108,6 +108,8 @@ pub struct ExecutedTransactions {
     /// All transactions that were invalid at the point of their execution and were not included in
     /// the block
     pub invalid: Vec<Arc<PoolTransaction>>,
+    /// Transactions that were skipped because they're not yet valid (e.g., valid_after in future)
+    pub not_yet_valid: Vec<Arc<PoolTransaction>>,
 }
 
 /// An executor for a series of transactions
@@ -146,6 +148,7 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
         let mut cumulative_gas_used = 0u64;
         let mut invalid = Vec::new();
         let mut included = Vec::new();
+        let mut not_yet_valid = Vec::new();
         let gas_limit = self.evm_env.block_env().gas_limit;
         let parent_hash = self.parent_hash;
         let block_number = self.evm_env.block_env().number;
@@ -186,7 +189,7 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
                     continue;
                 }
                 TransactionExecutionOutcome::Invalid(tx, _) => {
-                    trace!(target: "backend", ?tx,  "skipping invalid transaction");
+                    trace!(target: "backend", ?tx, "skipping invalid transaction");
                     invalid.push(tx);
                     continue;
                 }
@@ -194,6 +197,12 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
                     // Note: this is only possible in forking mode, if for example a rpc request
                     // failed
                     trace!(target: "backend", ?err,  "Failed to execute transaction due to database error");
+                    continue;
+                }
+                TransactionExecutionOutcome::NotYetValid(tx) => {
+                    // Transaction has valid_after in the future - skip for now but keep in pool
+                    trace!(target: "backend", ?tx, "transaction not yet valid, will retry later");
+                    not_yet_valid.push(tx);
                     continue;
                 }
             };
@@ -264,7 +273,7 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
 
         let block = create_block(header, transactions);
         let block = BlockInfo { block, transactions: transaction_infos, receipts };
-        ExecutedTransactions { block, included, invalid }
+        ExecutedTransactions { block, included, invalid, not_yet_valid }
     }
 
     fn env_for(&self, tx: &PendingTransaction) -> Env {
@@ -295,6 +304,9 @@ pub enum TransactionExecutionOutcome {
     TransactionGasExhausted(Arc<PoolTransaction>),
     /// When an error occurred during execution
     DatabaseError(Arc<PoolTransaction>, DatabaseError),
+    /// Transaction not yet valid (e.g., valid_after in the future)
+    /// Should remain in the pool for later execution
+    NotYetValid(Arc<PoolTransaction>),
 }
 
 impl<DB: Db + ?Sized, V: TransactionValidator> Iterator for &mut TransactionExecutor<'_, DB, V> {
@@ -395,8 +407,15 @@ impl<DB: Db + ?Sized, V: TransactionValidator> Iterator for &mut TransactionExec
                             ));
                         }
                         EVMError::Custom(msg) => {
-                            // Custom errors from Tempo (e.g., "native value transfer not allowed")
-                            // are treated as invalid transactions
+                            // Check if this is a "not valid yet" error from Tempo
+                            // (transaction has valid_after in the future)
+                            if msg.contains("not valid yet") {
+                                trace!(target: "backend", "[{:?}] transaction not valid yet, will retry later", transaction.hash());
+                                return Some(TransactionExecutionOutcome::NotYetValid(transaction));
+                            }
+                            // Other custom errors from Tempo (e.g., "native value transfer not
+                            // allowed") are treated as invalid
+                            // transactions
                             return Some(TransactionExecutionOutcome::Invalid(
                                 transaction,
                                 InvalidTransactionError::Revert(Some(msg.into_bytes().into())),

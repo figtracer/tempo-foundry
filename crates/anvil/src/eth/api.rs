@@ -1162,23 +1162,28 @@ impl EthApi {
 
         self.ensure_typed_transaction_supported(&transaction)?;
 
-        let pending_transaction = PendingTransaction::new(transaction)?;
+        let pending_transaction = PendingTransaction::new(transaction.clone())?;
 
         // pre-validate
         self.backend.validate_pool_transaction(&pending_transaction).await?;
 
-        let on_chain_nonce = self.backend.current_nonce(*pending_transaction.sender()).await?;
         let from = *pending_transaction.sender();
-        let nonce = pending_transaction.transaction.nonce();
-        let requires = required_marker(nonce, on_chain_nonce, from);
+
+        // Tempo transactions use a 2D nonce system (nonce_key + nonce) that is validated
+        // by the Tempo EVM itself. Skip standard nonce-based dependency tracking for these.
+        let is_tempo_tx = matches!(transaction, FoundryTxEnvelope::Tempo(_));
+        let (requires, provides) = if is_tempo_tx {
+            // Tempo txs have no dependencies and provide a unique marker based on tx hash
+            (vec![], vec![pending_transaction.hash().to_vec()])
+        } else {
+            let on_chain_nonce = self.backend.current_nonce(from).await?;
+            let nonce = pending_transaction.transaction.nonce();
+            (required_marker(nonce, on_chain_nonce, from), vec![to_marker(nonce, from)])
+        };
 
         let priority = self.transaction_priority(&pending_transaction.transaction);
-        let pool_transaction = PoolTransaction {
-            requires,
-            provides: vec![to_marker(nonce, *pending_transaction.sender())],
-            pending_transaction,
-            priority,
-        };
+        let pool_transaction =
+            PoolTransaction { requires, provides, pending_transaction, priority };
 
         let tx = self.pool.add_transaction(pool_transaction)?;
         trace!(target: "node", "Added transaction: [{:?}] sender={:?}", tx.hash(), from);

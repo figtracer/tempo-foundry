@@ -523,6 +523,43 @@ impl Backend {
         Ok(self.db.read().await.basic_ref(address)?.unwrap_or_default())
     }
 
+    /// Returns the ERC20/TIP20 token balance for an account
+    ///
+    /// Calls balanceOf(address) on the token contract.
+    pub async fn get_fee_token_balance(
+        &self,
+        token: Address,
+        account: Address,
+    ) -> Result<U256, BlockchainError> {
+        // balanceOf(address) selector: 0x70a08231
+        let mut calldata = vec![0x70, 0xa0, 0x82, 0x31];
+        // ABI-encode the address (left-padded to 32 bytes)
+        calldata.extend_from_slice(&[0u8; 12]);
+        calldata.extend_from_slice(account.as_slice());
+
+        let request = WithOtherFields::new(TransactionRequest {
+            from: Some(Address::ZERO),
+            to: Some(TxKind::Call(token)),
+            input: calldata.into(),
+            ..Default::default()
+        });
+
+        let fee_details = FeeDetails::zero();
+        let (exit, out, _, _) = self.call(request, fee_details, None, Default::default()).await?;
+
+        // Check if call succeeded
+        if exit != InstructionResult::Return && exit != InstructionResult::Stop {
+            // Return zero balance if call failed (token might not exist)
+            return Ok(U256::ZERO);
+        }
+
+        // Decode U256 from output
+        match out {
+            Some(Output::Call(data)) if data.len() >= 32 => Ok(U256::from_be_slice(&data[..32])),
+            _ => Ok(U256::ZERO),
+        }
+    }
+
     /// Whether we're forked off some remote client
     pub fn is_fork(&self) -> bool {
         self.fork.read().is_some()
@@ -1442,7 +1479,7 @@ impl Backend {
             };
 
             // create the new block with the current timestamp
-            let ExecutedTransactions { block, included, invalid } = executed_tx;
+            let ExecutedTransactions { block, included, invalid, not_yet_valid } = executed_tx;
             let BlockInfo { block, transactions, receipts } = block;
 
             let header = block.header.clone();
@@ -1516,7 +1553,7 @@ impl Backend {
                 node_info!("    Block Time: {:?}\n", timestamp.to_rfc2822());
             }
 
-            let outcome = MinedBlockOutcome { block_number, included, invalid };
+            let outcome = MinedBlockOutcome { block_number, included, invalid, not_yet_valid };
 
             (outcome, header, block_hash)
         };
@@ -3652,6 +3689,63 @@ impl TransactionValidator for Backend {
         let address = *tx.sender();
         let account = self.get_account(address).await?;
         let env = self.next_env();
+
+        // Tempo: validate AA transaction constraints (async checks done here, during pool
+        // admission)
+        if let FoundryTxEnvelope::Tempo(aa_tx) = tx.transaction.as_ref() {
+            let tempo_tx = aa_tx.tx();
+            let current_time = env.evm_env.block_env.timestamp.saturating_to::<u64>();
+
+            // Reject if valid_before is expired or too close to current time (< 3 seconds)
+            // This buffer allows time for the transaction to be mined
+            const AA_VALID_BEFORE_MIN_SECS: u64 = 3;
+            if let Some(valid_before) = tempo_tx.valid_before {
+                let min_allowed = current_time.saturating_add(AA_VALID_BEFORE_MIN_SECS);
+                if valid_before <= min_allowed {
+                    return Err(InvalidTransactionError::TempoValidBeforeExpired {
+                        valid_before,
+                        min_allowed,
+                    }
+                    .into());
+                }
+            }
+
+            // Reject if valid_after is too far in the future (> 1 hour)
+            const AA_VALID_AFTER_MAX_SECS: u64 = 3600;
+            if let Some(valid_after) = tempo_tx.valid_after {
+                let max_allowed = current_time.saturating_add(AA_VALID_AFTER_MAX_SECS);
+                if valid_after > max_allowed {
+                    return Err(InvalidTransactionError::TempoValidAfterTooFar {
+                        valid_after,
+                        max_allowed,
+                    }
+                    .into());
+                }
+            }
+
+            // Determine fee payer (sender or sponsored fee payer)
+            let fee_payer = tempo_tx.recover_fee_payer(address).unwrap_or(address);
+
+            // Default fee token is PathUSD if not specified
+            const PATH_USD: Address = address!("20C0000000000000000000000000000000000000");
+            let fee_token = tempo_tx.fee_token.unwrap_or(PATH_USD);
+
+            // Calculate required fee: gas_limit * max_fee_per_gas
+            let required =
+                U256::from(tempo_tx.gas_limit).saturating_mul(U256::from(tempo_tx.max_fee_per_gas));
+
+            // Get fee token balance using ERC20 balanceOf
+            let balance = self.get_fee_token_balance(fee_token, fee_payer).await?;
+
+            if balance < required {
+                return Err(InvalidTransactionError::TempoInsufficientFeeTokenBalance {
+                    balance,
+                    required,
+                }
+                .into());
+            }
+        }
+
         Ok(self.validate_pool_transaction_for(tx, &account, &env)?)
     }
 
@@ -3696,6 +3790,26 @@ impl TransactionValidator for Backend {
         if env.networks.is_tempo() && !tx.value().is_zero() {
             warn!(target: "backend", "[{:?}] native value transfer not allowed in Tempo mode", tx.hash());
             return Err(InvalidTransactionError::TempoNativeValueTransfer);
+        }
+
+        // Tempo: validate AA transaction constraints
+        // Note: Time bounds (valid_before/valid_after) are NOT validated here because:
+        // 1. They were already checked during pool admission (validate_for_pending_block)
+        // 2. The EVM itself enforces time bounds at execution time
+        // 3. Re-validating here would cause transactions to be dropped if they wait in the pool
+        if let FoundryTxEnvelope::Tempo(aa_tx) = tx.as_ref() {
+            let tempo_tx = aa_tx.tx();
+
+            // Reject if authorization list is too large (max 16)
+            const MAX_TEMPO_AUTHORIZATIONS: usize = 16;
+            let auth_count = tempo_tx.tempo_authorization_list.len();
+            if auth_count > MAX_TEMPO_AUTHORIZATIONS {
+                warn!(target: "backend", "[{:?}] Tempo tx has too many authorizations: {}", tx.hash(), auth_count);
+                return Err(InvalidTransactionError::TempoTooManyAuthorizations {
+                    count: auth_count,
+                    max: MAX_TEMPO_AUTHORIZATIONS,
+                });
+            }
         }
 
         // EIP-4844 structural validation (Tempo hardforks are all post-CANCUN)

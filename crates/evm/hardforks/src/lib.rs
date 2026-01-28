@@ -187,7 +187,6 @@ pub fn spec_id_from_optimism_hardfork(hardfork: OpHardfork) -> OpSpecId {
     }
 }
 
-
 /// Convert a `BlockNumberOrTag` into an `EthereumHardfork`.
 pub fn ethereum_hardfork_from_block_tag(block: impl Into<BlockNumberOrTag>) -> EthereumHardfork {
     let num = match block.into() {

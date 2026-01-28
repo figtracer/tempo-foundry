@@ -41,7 +41,8 @@ use foundry_evm::{
     constants::DEFAULT_CREATE2_DEPLOYER,
     core::AsEnvMut,
     hardforks::{
-        FoundryHardfork, OpHardfork, ethereum_hardfork_from_block_tag, spec_id_from_ethereum_hardfork,
+        FoundryHardfork, OpHardfork, ethereum_hardfork_from_block_tag,
+        spec_id_from_ethereum_hardfork,
     },
     utils::{apply_chain_and_block_specific_env_changes, get_blob_base_fee_update_fraction},
 };
@@ -53,7 +54,6 @@ use revm::{
     context_interface::block::BlobExcessGasAndPrice,
     primitives::hardfork::SpecId,
 };
-use tempo_chainspec::hardfork::TempoHardfork;
 use serde_json::{Value, json};
 use std::{
     fmt::Write as FmtWrite,
@@ -64,6 +64,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::TempoBlockEnv;
 use tempo_revm::TempoTxEnv;
 use tokio::sync::RwLock as TokioRwLock;

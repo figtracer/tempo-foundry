@@ -41,8 +41,7 @@ use foundry_evm::{
     constants::DEFAULT_CREATE2_DEPLOYER,
     core::AsEnvMut,
     hardforks::{
-        FoundryHardfork, OpHardfork, ethereum_hardfork_from_block_tag,
-        spec_id_from_ethereum_hardfork, spec_id_from_tempo_hardfork,
+        FoundryHardfork, OpHardfork, ethereum_hardfork_from_block_tag, spec_id_from_ethereum_hardfork,
     },
     utils::{apply_chain_and_block_specific_env_changes, get_blob_base_fee_update_fraction},
 };
@@ -54,6 +53,7 @@ use revm::{
     context_interface::block::BlobExcessGasAndPrice,
     primitives::hardfork::SpecId,
 };
+use tempo_chainspec::hardfork::TempoHardfork;
 use serde_json::{Value, json};
 use std::{
     fmt::Write as FmtWrite,
@@ -1082,7 +1082,7 @@ impl NodeConfig {
     pub(crate) async fn setup(&mut self) -> Result<mem::Backend> {
         // configure the revm environment
 
-        let mut cfg = CfgEnv::default();
+        let mut cfg: CfgEnv<TempoHardfork> = CfgEnv::default();
         cfg.spec = self.get_hardfork().into();
 
         cfg.chain_id = self.get_chain_id();
@@ -1101,7 +1101,7 @@ impl NodeConfig {
             cfg.memory_limit = value;
         }
 
-        let spec_id = spec_id_from_tempo_hardfork(cfg.spec);
+        let spec_id: SpecId = cfg.spec.into();
         let block_env = {
             let mut block = TempoBlockEnv::default();
             block.inner.gas_limit = self.gas_limit();

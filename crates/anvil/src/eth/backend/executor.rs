@@ -159,8 +159,7 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
         // Determine hardfork features based on spec_id
         // Note: Tempo hardforks are all post-OSAKA, so all these features are enabled for Tempo.
         // For Ethereum mode, we use the actual spec_id from the config.
-        let spec_id =
-            foundry_evm::hardforks::spec_id_from_tempo_hardfork(self.evm_env.cfg_env.spec);
+        let spec_id: SpecId = self.evm_env.cfg_env.spec.into();
         let is_london = spec_id >= SpecId::LONDON;
         let is_shanghai = spec_id >= SpecId::SHANGHAI;
         let is_cancun = spec_id >= SpecId::CANCUN;
@@ -492,9 +491,8 @@ where
         EitherEvm::Op(OpEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
     } else {
         // Convert TempoHardfork to SpecId and TempoBlockEnv to BlockEnv for EthEvmFactory
-        use foundry_evm::hardforks::spec_id_from_tempo_hardfork;
         use revm::context::CfgEnv;
-        let spec_id = spec_id_from_tempo_hardfork(env.evm_env.cfg_env.spec);
+        let spec_id: SpecId = env.evm_env.cfg_env.spec.into();
         let mut cfg_env: CfgEnv<SpecId> = CfgEnv::default().with_spec(spec_id);
         cfg_env.chain_id = env.evm_env.cfg_env.chain_id;
         cfg_env.tx_gas_limit_cap = env.evm_env.cfg_env.tx_gas_limit_cap;

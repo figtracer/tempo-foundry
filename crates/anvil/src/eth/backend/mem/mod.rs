@@ -97,7 +97,6 @@ use foundry_evm::{
     constants::DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE,
     core::{either_evm::EitherEvm, precompiles::EC_RECOVER},
     decode::RevertDecoder,
-    hardforks::spec_id_from_tempo_hardfork,
     inspectors::AccessListInspector,
     traces::{
         CallTraceDecoder, FourByteInspector, GethTraceBuilder, TracingInspector,
@@ -281,7 +280,7 @@ impl Backend {
             let env = env.read();
             Blockchain::new(
                 &env,
-                spec_id_from_tempo_hardfork(env.evm_env.cfg_env.spec),
+                env.evm_env.cfg_env.spec.into(),
                 fees.is_eip1559().then(|| fees.base_fee()),
                 genesis.timestamp,
                 genesis.number,
@@ -805,7 +804,7 @@ impl Backend {
 
     /// Returns the configured specid (converted from TempoHardfork)
     pub fn spec_id(&self) -> SpecId {
-        spec_id_from_tempo_hardfork(self.hardfork())
+        self.hardfork().into()
     }
 
     /// Returns true for post London (all Tempo hardforks are post-London)

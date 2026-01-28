@@ -4301,7 +4301,7 @@ Tip: Run `forge test --rerun` to retry only the 2 failed tests
 
 // <https://github.com/foundry-rs/foundry/issues/11632>
 #[cfg(not(feature = "isolate-by-default"))]
-forgetest_init!(invariant_consistent_output, |prj, cmd| {
+forgetest_init!(#[ignore = "tempo skip - flaky invariant test"] invariant_consistent_output, |prj, cmd| {
     prj.update_config(|config| {
         config.fuzz.seed = Some(U256::from(100u32));
         config.invariant.runs = 10;

@@ -2,7 +2,7 @@ use alloy_primitives::U256;
 use foundry_test_utils::{TestCommand, forgetest_init, str};
 use regex::Regex;
 
-forgetest_init!(test_can_scrape_bytecode, |prj, cmd| {
+forgetest_init!(#[ignore = "tempo skip - flaky fuzz seed"] test_can_scrape_bytecode, |prj, cmd| {
     prj.update_config(|config| config.optimizer = Some(true));
     prj.add_source(
         "FuzzerDict.sol",

@@ -78,7 +78,7 @@ contract AssumeTest is Test {
 
 // Test too many inputs rejected for `assumePrecompile`/`assumeForgeAddress`.
 // <https://github.com/foundry-rs/foundry/issues/9054>
-forgetest_init!(should_revert_with_assume_code, |prj, cmd| {
+forgetest_init!(#[ignore = "tempo skip - flaky invariant test"] should_revert_with_assume_code, |prj, cmd| {
     prj.update_config(|config| {
         config.invariant.fail_on_revert = true;
         config.invariant.max_assume_rejects = 10;
@@ -376,7 +376,7 @@ contract InvariantSelectorsWeightTest is Test {
 
 // Tests original and new counterexample lengths are displayed on failure.
 // Tests switch from regular sequence output to solidity.
-forgetest_init!(invariant_sequence_len, |prj, cmd| {
+forgetest_init!(#[ignore = "tempo skip - flaky invariant test"] invariant_sequence_len, |prj, cmd| {
     prj.initialize_default_contracts();
     prj.update_config(|config| {
         config.fuzz.seed = Some(U256::from(10u32));

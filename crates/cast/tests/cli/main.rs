@@ -1466,7 +1466,7 @@ casttest!(calldata_array, |_prj, cmd| {
 });
 
 // <https://github.com/foundry-rs/foundry/issues/2705>
-casttest!(run_succeeds, |_prj, cmd| {
+casttest!(#[ignore = "tempo skip - mainnet fork"] run_succeeds, |_prj, cmd| {
     let rpc = next_http_archive_rpc_url();
     cmd.args([
         "run",
@@ -1514,8 +1514,7 @@ casttest!(to_base, |_prj, cmd| {
 });
 
 // tests that revert reason is only present if transaction has reverted.
-
-casttest!(receipt_revert_reason, |_prj, cmd| {
+casttest!(#[ignore = "tempo skip - mainnet fork"] receipt_revert_reason, |_prj, cmd| {
     let rpc = next_http_archive_rpc_url();
 
     // <https://etherscan.io/tx/0x44f2aaa351460c074f2cb1e5a9e28cbc7d83f33e425101d2de14331c7b7ec31e>
@@ -1579,7 +1578,7 @@ revertReason         [..]Transaction too old, data: "0x08c379a000000000000000000
 "#,"","","",""));
 });
 // tests that the revert reason is loaded using the correct `from` address.
-casttest!(revert_reason_from, |_prj, cmd| {
+casttest!(#[ignore = "tempo skip - mainnet fork"] revert_reason_from, |_prj, cmd| {
     let rpc = next_rpc_endpoint(NamedChain::Sepolia);
     // https://sepolia.etherscan.io/tx/0x10ee70cf9f5ced5c515e8d53bfab5ea9f5c72cd61b25fba455c8355ee286c4e4
     cmd.args([
@@ -2006,7 +2005,7 @@ casttest!(tx_to_request_json, |_prj, cmd| {
 "#]]);
 });
 
-casttest!(tx_using_sender_and_nonce, |_prj, cmd| {
+casttest!(#[ignore = "tempo skip - mainnet fork"] tx_using_sender_and_nonce, |_prj, cmd| {
     let rpc = next_http_archive_rpc_url();
     // <https://etherscan.io/tx/0x5bcd22734cca2385dc25b2d38a3d33a640c5961bd46d390dff184c894204b594>
     let args = vec![

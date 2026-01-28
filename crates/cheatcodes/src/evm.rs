@@ -1089,7 +1089,8 @@ impl Cheatcode for executeTransactionCall {
             let mut tempo_tx_env = TempoTxEnv::from_recovered_tx(&tx, sender);
 
             // Set basefee and gas fees to 0 for isolated execution.
-            // NOTE: `gas_priority_fee` must also be cleared to validation errors for EIP-1559/EIP-7702 txs.
+            // NOTE: `gas_priority_fee` must also be cleared to avoid validation errors for
+            // EIP-1559/EIP-7702 txs.
             env.block.basefee = 0;
             tempo_tx_env.gas_price = 0;
             tempo_tx_env.gas_priority_fee = None;

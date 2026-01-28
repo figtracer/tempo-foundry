@@ -395,9 +395,23 @@ impl<DB: Db + ?Sized, V: TransactionValidator> Iterator for &mut TransactionExec
                                 err.into(),
                             ));
                         }
-                        // This will correspond to prevrandao not set, and it should never happen.
-                        // If it does, it's a bug.
-                        e => panic!("failed to execute transaction: {e}"),
+                        EVMError::Custom(msg) => {
+                            // Custom errors from Tempo (e.g., "native value transfer not allowed")
+                            // are treated as invalid transactions
+                            return Some(TransactionExecutionOutcome::Invalid(
+                                transaction,
+                                InvalidTransactionError::Revert(Some(msg.into_bytes().into())),
+                            ));
+                        }
+                        EVMError::Header(e) => {
+                            warn!(target: "backend", "[{:?}] header error: {:?}", transaction.hash(), e);
+                            return Some(TransactionExecutionOutcome::Invalid(
+                                transaction,
+                                InvalidTransactionError::Revert(Some(
+                                    e.to_string().into_bytes().into(),
+                                )),
+                            ));
+                        }
                     }
                 }
             }

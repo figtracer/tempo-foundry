@@ -461,15 +461,20 @@ impl Backend {
         if self.is_tempo() && !self.is_fork() {
             let chain_id = self.env.read().evm_env.cfg_env.chain_id;
             let timestamp = self.genesis.timestamp;
+            // Get genesis accounts to fund with fee tokens
+            let test_accounts: Vec<Address> = self.genesis.accounts.iter().copied().collect();
             let mut db = self.db.write().await;
             crate::eth::backend::tempo::initialize_tempo_precompiles(
-                &mut **db, chain_id, timestamp,
+                &mut **db,
+                chain_id,
+                timestamp,
+                &test_accounts,
             )
             .map_err(|e| {
                 tracing::error!(target: "backend", "failed to initialize Tempo precompiles: {e}");
                 DatabaseError::AnyRequest(Arc::new(eyre::eyre!("{e}")))
             })?;
-            trace!(target: "backend", "initialized Tempo precompiles and fee tokens");
+            trace!(target: "backend", "initialized Tempo precompiles and fee tokens for {} accounts", test_accounts.len());
         }
 
         trace!(target: "backend", "set genesis balances");
@@ -3680,6 +3685,12 @@ impl TransactionValidator for Backend {
         if nonce < account.nonce && !is_deposit_tx {
             warn!(target: "backend", "[{:?}] nonce too low", tx.hash());
             return Err(InvalidTransactionError::NonceTooLow);
+        }
+
+        // Tempo: reject native value transfers (Tempo uses fee tokens instead of native ETH)
+        if env.networks.is_tempo() && !tx.value().is_zero() {
+            warn!(target: "backend", "[{:?}] native value transfer not allowed in Tempo mode", tx.hash());
+            return Err(InvalidTransactionError::TempoNativeValueTransfer);
         }
 
         // EIP-4844 structural validation (Tempo hardforks are all post-CANCUN)

@@ -331,6 +331,9 @@ pub enum InvalidTransactionError {
     /// Missing enveloped transaction
     #[error("missing enveloped transaction")]
     MissingEnvelopedTx,
+    /// Native ETH value transfers are not allowed in Tempo mode
+    #[error("native value transfer not allowed in Tempo mode")]
+    TempoNativeValueTransfer,
 }
 
 impl From<InvalidTransaction> for InvalidTransactionError {

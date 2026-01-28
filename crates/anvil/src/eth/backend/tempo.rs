@@ -12,7 +12,11 @@ use foundry_evm::core::tempo::initialize_tempo_genesis;
 use revm::state::{AccountInfo, Bytecode};
 use std::collections::HashMap;
 use tempo_chainspec::hardfork::TempoHardfork;
-use tempo_precompiles::{error::TempoPrecompileError, storage::PrecompileStorageProvider};
+use tempo_precompiles::{
+    error::TempoPrecompileError,
+    storage::{PrecompileStorageProvider, StorageCtx},
+    tip20::{ITIP20, TIP20Token},
+};
 
 use super::db::Db;
 
@@ -20,6 +24,15 @@ use super::db::Db;
 const SENDER: Address = address!("0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38");
 /// Admin address used for genesis initialization.
 const ADMIN: Address = address!("0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f");
+
+/// PathUSD token address
+const PATH_USD: Address = address!("20C0000000000000000000000000000000000000");
+/// AlphaUSD token address
+const ALPHA_USD: Address = address!("20C0000000000000000000000000000000000001");
+/// BetaUSD token address
+const BETA_USD: Address = address!("20C0000000000000000000000000000000000002");
+/// ThetaUSD token address
+const THETA_USD: Address = address!("20C0000000000000000000000000000000000003");
 
 /// Storage provider adapter for Anvil's Db to work with Tempo precompiles.
 pub struct AnvilStorageProvider<'a> {
@@ -162,15 +175,36 @@ impl PrecompileStorageProvider for AnvilStorageProvider<'_> {
 ///
 /// This sets up the same precompiles and tokens as Tempo's genesis, enabling
 /// proper fee token validation for transactions.
+///
+/// Additionally, mints fee tokens to the provided test accounts so they can
+/// send transactions in Tempo mode.
 pub fn initialize_tempo_precompiles(
     db: &mut dyn Db,
     chain_id: u64,
     timestamp: u64,
+    test_accounts: &[Address],
 ) -> Result<(), TempoPrecompileError> {
     let hardfork = TempoHardfork::default();
     let timestamp = U256::from(timestamp);
 
     let mut storage = AnvilStorageProvider::new(db, chain_id, timestamp, hardfork);
 
-    initialize_tempo_genesis(&mut storage, ADMIN, SENDER)
+    // Initialize base Tempo genesis (precompiles and tokens)
+    initialize_tempo_genesis(&mut storage, ADMIN, SENDER)?;
+
+    // Mint fee tokens to test accounts
+    let mint_amount = U256::from(u64::MAX);
+    let tokens = [PATH_USD, ALPHA_USD, BETA_USD, THETA_USD];
+
+    StorageCtx::enter(&mut storage, || -> Result<(), TempoPrecompileError> {
+        for &token_address in &tokens {
+            let mut token = TIP20Token::from_address(token_address)?;
+            for &account in test_accounts {
+                token.mint(ADMIN, ITIP20::mintCall { to: account, amount: mint_amount })?;
+            }
+        }
+        Ok(())
+    })?;
+
+    Ok(())
 }

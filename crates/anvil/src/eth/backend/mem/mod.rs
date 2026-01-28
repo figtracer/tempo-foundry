@@ -114,7 +114,6 @@ use foundry_primitives::{
 };
 use futures::channel::mpsc::{UnboundedSender, unbounded};
 use op_alloy_consensus::DEPOSIT_TX_TYPE_ID;
-use tempo_primitives::TEMPO_TX_TYPE_ID;
 use op_revm::{OpContext, OpHaltReason, OpTransaction};
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use revm::{
@@ -142,6 +141,7 @@ use std::{
 use storage::{Blockchain, DEFAULT_HISTORY_LIMIT, MinedTransaction};
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::TempoBlockEnv;
+use tempo_primitives::TEMPO_TX_TYPE_ID;
 use tempo_revm::TempoTxEnv;
 use tokio::sync::RwLock as AsyncRwLock;
 
@@ -3681,9 +3681,13 @@ impl TransactionValidator for Backend {
         }
 
         // Nonce validation
+        // Skip nonce validation for:
+        // - Deposit transactions (L1 -> L2 deposits)
+        // - Tempo transactions (2D nonce system handled by Tempo EVM)
         let is_deposit_tx = matches!(pending.transaction.as_ref(), FoundryTxEnvelope::Deposit(_));
+        let is_tempo_tx = matches!(pending.transaction.as_ref(), FoundryTxEnvelope::Tempo(_));
         let nonce = tx.nonce();
-        if nonce < account.nonce && !is_deposit_tx {
+        if nonce < account.nonce && !is_deposit_tx && !is_tempo_tx {
             warn!(target: "backend", "[{:?}] nonce too low", tx.hash());
             return Err(InvalidTransactionError::NonceTooLow);
         }

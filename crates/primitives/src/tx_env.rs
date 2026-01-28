@@ -95,10 +95,9 @@ impl FromRecoveredTx<FoundryTxEnvelope> for FoundryTempoTxEnv {
     fn from_recovered_tx(tx: &FoundryTxEnvelope, caller: Address) -> Self {
         match tx {
             // Handle Tempo transactions natively using TempoTxEnv's FromRecoveredTx impl
-            FoundryTxEnvelope::Tempo(aa_signed) => Self {
-                inner: TempoTxEnv::from_recovered_tx(aa_signed, caller),
-                enveloped_tx: None,
-            },
+            FoundryTxEnvelope::Tempo(aa_signed) => {
+                Self { inner: TempoTxEnv::from_recovered_tx(aa_signed, caller), enveloped_tx: None }
+            }
             // For all other transaction types, convert through OpTransaction<TxEnv>
             _ => {
                 let op_tx: OpTransaction<TxEnv> = FromRecoveredTx::from_recovered_tx(tx, caller);

@@ -193,6 +193,7 @@ pub fn initialize_tempo_precompiles(
     initialize_tempo_genesis(&mut storage, ADMIN, SENDER)?;
 
     // Mint fee tokens to test accounts
+    // u64::MAX per account - safe since u128::MAX can hold ~18 quintillion u64::MAX values
     let mint_amount = U256::from(u64::MAX);
     let tokens = [PATH_USD, ALPHA_USD, BETA_USD, THETA_USD];
 

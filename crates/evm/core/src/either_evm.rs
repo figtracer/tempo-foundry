@@ -116,7 +116,10 @@ where
     /// Converts a [`tempo_revm::TempoEvm::transact_commit`] result to [`EitherExecResult`].
     fn map_tempo_exec_result(
         &self,
-        result: Result<ExecutionResult<TempoHaltReason>, EVMError<DB::Error, TempoInvalidTransaction>>,
+        result: Result<
+            ExecutionResult<TempoHaltReason>,
+            EVMError<DB::Error, TempoInvalidTransaction>,
+        >,
     ) -> EitherExecResult<DB::Error, OpHaltReason, OpTransactionError> {
         match result {
             Ok(result) => Ok(result.map_haltreason(map_tempo_halt_to_op)),
@@ -136,7 +139,8 @@ fn map_tempo_halt_to_op(halt: TempoHaltReason) -> OpHaltReason {
     }
 }
 
-/// Maps [`EVMError<DBError, TempoInvalidTransaction>`] to [`EVMError<DBError, OpTransactionError>`].
+/// Maps [`EVMError<DBError, TempoInvalidTransaction>`] to [`EVMError<DBError,
+/// OpTransactionError>`].
 fn map_tempo_err_to_op<DBError>(
     err: EVMError<DBError, TempoInvalidTransaction>,
 ) -> EVMError<DBError, OpTransactionError> {
@@ -254,9 +258,7 @@ where
             Self::Op(evm) => evm.precompiles(),
             Self::Tempo(evm) => {
                 // SAFETY: Same as precompiles_mut - the cast is safe when P = PrecompilesMap
-                unsafe {
-                    std::mem::transmute::<&PrecompilesMap, &P>(&evm.inner.precompiles)
-                }
+                unsafe { std::mem::transmute::<&PrecompilesMap, &P>(&evm.inner.precompiles) }
             }
         }
     }
@@ -267,9 +269,10 @@ where
             Self::Op(evm) => evm.precompiles_mut(),
             Self::Tempo(evm) => {
                 // SAFETY: This cast is safe because when EitherEvm is used with P = PrecompilesMap
-                // (which is always the case in Anvil), the Tempo variant's precompiles type matches.
-                // The PrecompilesMap is the same concrete type in both cases.
-                // We use unsafe transmute here because Rust doesn't have specialization.
+                // (which is always the case in Anvil), the Tempo variant's precompiles type
+                // matches. The PrecompilesMap is the same concrete type in both
+                // cases. We use unsafe transmute here because Rust doesn't have
+                // specialization.
                 unsafe {
                     std::mem::transmute::<&mut PrecompilesMap, &mut P>(&mut evm.inner.precompiles)
                 }

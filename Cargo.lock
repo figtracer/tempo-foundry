@@ -1205,7 +1205,6 @@ dependencies = [
  "alloy-eips",
  "alloy-evm",
  "alloy-genesis",
- "alloy-hardforks",
  "alloy-network",
  "alloy-op-evm",
  "alloy-primitives",
@@ -15242,6 +15241,11 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "revm-inspectors"
+version = "0.34.0"
+source = "git+https://github.com/paradigmxyz/revm-inspectors.git?tag=v0.34.0#516a4fac15dcefc9daa6ea3ffa42e11e965be0fe"
 
 [[patch.unused]]
 name = "rexpect"

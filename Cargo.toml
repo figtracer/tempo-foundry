@@ -381,7 +381,10 @@ tower-http = "0.6"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2"
-vergen = { version = "=9.1.0", default-features = false, features = ["build", "cargo"] }
+vergen = { version = "=9.1.0", default-features = false, features = [
+  "build",
+  "cargo",
+] }
 vergen-git2 = "=9.1.0"
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
 path-slash = "0.2"
@@ -462,7 +465,7 @@ rexpect = { git = "https://github.com/rust-cli/rexpect", rev = "2ed0b1898d7edaf6
 ## revm
 # revm = { git = "https://github.com/bluealloy/revm.git", rev = "7e59936" }
 # op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "7e59936" }
-# revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", branch = "staging-revm" }
+revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", tag = "v0.34.0" }
 
 ## foundry
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }

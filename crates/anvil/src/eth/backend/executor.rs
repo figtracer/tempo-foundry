@@ -17,7 +17,7 @@ use alloy_consensus::{
     Header, Receipt, ReceiptWithBloom, Transaction, constants::EMPTY_WITHDRAWALS,
     proofs::calculate_receipt_root,
 };
-use alloy_eips::{eip7685::EMPTY_REQUESTS_HASH, eip7840::BlobParams};
+use alloy_eips::{Encodable2718, eip7685::EMPTY_REQUESTS_HASH, eip7840::BlobParams};
 use alloy_evm::{
     EthEvmFactory, Evm, EvmEnv, EvmFactory, FromRecoveredTx,
     eth::EthEvmContext,
@@ -39,7 +39,7 @@ use foundry_primitives::{FoundryReceiptEnvelope, FoundryTempoTxEnv, FoundryTxEnv
 use op_revm::OpContext;
 use revm::{
     Database, Inspector,
-    context::{Block as RevmBlock, Cfg, TxEnv},
+    context::{Block as RevmBlock, Cfg},
     context_interface::result::{EVMError, ExecutionResult, Output},
     interpreter::InstructionResult,
     primitives::hardfork::SpecId,
@@ -47,7 +47,6 @@ use revm::{
 use std::{fmt::Debug, sync::Arc};
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::TempoBlockEnv;
-use tempo_revm::TempoTxEnv;
 
 /// Represents an executed transaction (transacted on the DB)
 #[derive(Debug)]
@@ -88,7 +87,7 @@ impl ExecutedTransaction {
                 FoundryReceiptEnvelope::Deposit(op_alloy_consensus::OpDepositReceiptWithBloom {
                     receipt: op_alloy_consensus::OpDepositReceipt {
                         inner: receipt_with_bloom.receipt,
-                        deposit_nonce: Some(0),
+                        deposit_nonce: Some(self.nonce),
                         deposit_receipt_version: Some(1),
                     },
                     logs_bloom: receipt_with_bloom.logs_bloom,
@@ -270,23 +269,15 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
     }
 
     fn env_for(&self, tx: &PendingTransaction) -> Env {
-        let tx_env: FoundryTempoTxEnv =
+        let mut tx_env: FoundryTempoTxEnv =
             FromRecoveredTx::from_recovered_tx(tx.transaction.as_ref(), *tx.sender());
 
-        // TODO: Re-enable EIP-7702 authorization list cheats for Tempo
-        // if let FoundryTxEnvelope::Eip7702(tx_7702) = tx.transaction.as_ref()
-        //     && self.cheats.has_recover_overrides()
-        // {
-        //     // Override invalid recovered authorizations with signature overrides from cheat
-        // manager     ...
-        // }
+        // OP-stack L1 fee calculation: set enveloped_tx for Optimism mode
+        if self.networks.is_optimism() {
+            tx_env.enveloped_tx = Some(tx.transaction.encoded_2718().into());
+        }
 
-        // TODO: OP-stack L1 fee calculation is disabled for Tempo
-        // if self.networks.is_optimism() {
-        //     tx_env.enveloped_tx = Some(alloy_rlp::encode(tx.transaction.as_ref()).into());
-        // }
-
-        Env::new(self.evm_env.clone(), tx_env.0, self.networks)
+        Env::with_foundry_tx(self.evm_env.clone(), tx_env, self.networks)
     }
 }
 
@@ -470,6 +461,36 @@ fn build_logs_bloom(logs: &[Log], bloom: &mut Bloom) {
     }
 }
 
+/// Maps a SpecId to the most appropriate OpSpecId.
+///
+/// This is used to derive OP hardfork params when running in Optimism mode.
+/// The mapping selects the latest OP hardfork that corresponds to the given ETH spec.
+fn spec_id_to_op_spec_id(spec_id: SpecId) -> op_revm::OpSpecId {
+    match spec_id {
+        SpecId::FRONTIER
+        | SpecId::FRONTIER_THAWING
+        | SpecId::HOMESTEAD
+        | SpecId::DAO_FORK
+        | SpecId::TANGERINE
+        | SpecId::SPURIOUS_DRAGON
+        | SpecId::BYZANTIUM
+        | SpecId::CONSTANTINOPLE
+        | SpecId::PETERSBURG
+        | SpecId::ISTANBUL
+        | SpecId::MUIR_GLACIER
+        | SpecId::BERLIN
+        | SpecId::LONDON
+        | SpecId::ARROW_GLACIER
+        | SpecId::GRAY_GLACIER
+        | SpecId::MERGE => op_revm::OpSpecId::REGOLITH,
+        SpecId::SHANGHAI => op_revm::OpSpecId::CANYON,
+        SpecId::CANCUN => op_revm::OpSpecId::HOLOCENE,
+        SpecId::PRAGUE => op_revm::OpSpecId::ISTHMUS,
+        SpecId::OSAKA => op_revm::OpSpecId::OSAKA,
+        _ => op_revm::OpSpecId::ISTHMUS,
+    }
+}
+
 /// Creates a database with given database and inspector.
 pub fn new_evm_with_inspector<DB, I>(
     db: DB,
@@ -480,28 +501,43 @@ where
     DB: Database<Error = DatabaseError> + Debug,
     I: Inspector<EthEvmContext<DB>> + Inspector<OpContext<DB>>,
 {
+    // Convert TempoHardfork to SpecId for hardfork detection
+    let spec_id: SpecId = env.evm_env.cfg_env.spec.into();
+
     if env.networks.is_optimism() {
-        let evm_env = EvmEnv::new(
-            env.evm_env
-                .cfg_env
-                .clone()
-                .with_spec_and_mainnet_gas_params(op_revm::OpSpecId::ISTHMUS),
-            env.evm_env.block_env.inner.clone(),
-        );
-        EitherEvm::Op(OpEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
-    } else {
-        // Convert TempoHardfork to SpecId and TempoBlockEnv to BlockEnv for EthEvmFactory
-        use revm::context::CfgEnv;
-        let spec_id: SpecId = env.evm_env.cfg_env.spec.into();
-        let mut cfg_env: CfgEnv<SpecId> = CfgEnv::default().with_spec(spec_id);
+        // Map the Ethereum SpecId to the corresponding OpSpecId
+        let op_spec_id = spec_id_to_op_spec_id(spec_id);
+
+        // Build OpSpecId-based CfgEnv with all fields from the original
+        let mut cfg_env: revm::context::CfgEnv<op_revm::OpSpecId> =
+            revm::context::CfgEnv::<op_revm::OpSpecId>::default()
+                .with_spec_and_mainnet_gas_params(op_spec_id);
         cfg_env.chain_id = env.evm_env.cfg_env.chain_id;
         cfg_env.tx_gas_limit_cap = env.evm_env.cfg_env.tx_gas_limit_cap;
         cfg_env.memory_limit = env.evm_env.cfg_env.memory_limit;
+        cfg_env.limit_contract_code_size = env.evm_env.cfg_env.limit_contract_code_size;
         cfg_env.disable_nonce_check = env.evm_env.cfg_env.disable_nonce_check;
         cfg_env.disable_balance_check = env.evm_env.cfg_env.disable_balance_check;
         cfg_env.disable_base_fee = env.evm_env.cfg_env.disable_base_fee;
         cfg_env.disable_block_gas_limit = env.evm_env.cfg_env.disable_block_gas_limit;
         cfg_env.disable_eip3607 = env.evm_env.cfg_env.disable_eip3607;
+
+        let evm_env = EvmEnv::new(cfg_env, env.evm_env.block_env.inner.clone());
+        EitherEvm::Op(OpEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
+    } else {
+        // Build SpecId-based CfgEnv with all fields from the original
+        let mut cfg_env: revm::context::CfgEnv<SpecId> =
+            revm::context::CfgEnv::<SpecId>::default().with_spec_and_mainnet_gas_params(spec_id);
+        cfg_env.chain_id = env.evm_env.cfg_env.chain_id;
+        cfg_env.tx_gas_limit_cap = env.evm_env.cfg_env.tx_gas_limit_cap;
+        cfg_env.memory_limit = env.evm_env.cfg_env.memory_limit;
+        cfg_env.limit_contract_code_size = env.evm_env.cfg_env.limit_contract_code_size;
+        cfg_env.disable_nonce_check = env.evm_env.cfg_env.disable_nonce_check;
+        cfg_env.disable_balance_check = env.evm_env.cfg_env.disable_balance_check;
+        cfg_env.disable_base_fee = env.evm_env.cfg_env.disable_base_fee;
+        cfg_env.disable_block_gas_limit = env.evm_env.cfg_env.disable_block_gas_limit;
+        cfg_env.disable_eip3607 = env.evm_env.cfg_env.disable_eip3607;
+
         let evm_env = EvmEnv::new(cfg_env, env.evm_env.block_env.inner.clone());
         EitherEvm::Eth(EthEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
     }

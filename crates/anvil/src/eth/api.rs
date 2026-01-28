@@ -29,7 +29,7 @@ use crate::{
     filter::{EthFilter, Filters, LogsFilter},
     mem::transaction_build,
 };
-use alloy_consensus::{Account, Blob, Transaction, TxEip4844Variant, transaction::Recovered};
+use alloy_consensus::{Blob, Transaction, TxEip4844Variant, transaction::Recovered};
 use alloy_dyn_abi::TypedData;
 use alloy_eips::{
     eip2718::Encodable2718,
@@ -65,6 +65,7 @@ use alloy_rpc_types_eth::FillTransaction;
 use alloy_serde::WithOtherFields;
 use alloy_sol_types::{SolCall, SolValue, sol};
 use alloy_transport::TransportErrorKind;
+use alloy_trie::TrieAccount;
 use anvil_core::{
     eth::{
         EthRequest,
@@ -87,7 +88,6 @@ use futures::{
 };
 use parking_lot::RwLock;
 use revm::{
-    context::BlockEnv,
     context_interface::{block::BlobExcessGasAndPrice, result::Output},
     database::CacheDB,
     interpreter::{InstructionResult, return_ok, return_revert},
@@ -753,7 +753,7 @@ impl EthApi {
         &self,
         address: Address,
         block_number: Option<BlockId>,
-    ) -> Result<Account> {
+    ) -> Result<TrieAccount> {
         node_info!("eth_getAccount");
         let block_request = self.block_request(block_number).await?;
 

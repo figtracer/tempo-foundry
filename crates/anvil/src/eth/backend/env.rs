@@ -23,7 +23,18 @@ impl Env {
         tx: TempoTxEnv,
         networks: NetworkConfigs,
     ) -> Self {
-        Self { evm_env, tx: FoundryTempoTxEnv(tx), networks }
+        Self { evm_env, tx: FoundryTempoTxEnv::new(tx), networks }
+    }
+
+    /// Creates a new `Env` with a `FoundryTempoTxEnv`, preserving the `enveloped_tx` field.
+    ///
+    /// Use this when the transaction has OP-stack L1 fee data that must be preserved.
+    pub fn with_foundry_tx(
+        evm_env: EvmEnv<TempoHardfork, TempoBlockEnv>,
+        tx: FoundryTempoTxEnv,
+        networks: NetworkConfigs,
+    ) -> Self {
+        Self { evm_env, tx, networks }
     }
 }
 
@@ -32,7 +43,7 @@ impl AsEnvMut for Env {
         EnvMut {
             block: &mut self.evm_env.block_env,
             cfg: &mut self.evm_env.cfg_env,
-            tx: &mut self.tx.0,
+            tx: &mut self.tx.inner,
         }
     }
 }

@@ -33,8 +33,8 @@ use crate::{
 };
 use alloy_chains::NamedChain;
 use alloy_consensus::{
-    Account, Blob, BlockHeader, EnvKzgSettings, Header, Signed, Transaction as TransactionTrait,
-    TxEnvelope, Typed2718,
+    Blob, BlockHeader, EnvKzgSettings, Header, Signed, Transaction as TransactionTrait, TxEnvelope,
+    Typed2718,
     proofs::{calculate_receipt_root, calculate_transaction_root},
     transaction::Recovered,
 };
@@ -82,7 +82,7 @@ use alloy_rpc_types::{
 use alloy_serde::{OtherFields, WithOtherFields};
 use alloy_signer::Signature;
 use alloy_signer_local::PrivateKeySigner;
-use alloy_trie::{HashBuilder, Nibbles, proof::ProofRetainer};
+use alloy_trie::{HashBuilder, Nibbles, TrieAccount, proof::ProofRetainer};
 use anvil_core::eth::{
     block::{Block, BlockInfo},
     transaction::{MaybeImpersonatedTransaction, PendingTransaction, TransactionInfo},
@@ -106,7 +106,7 @@ use foundry_evm::{
 };
 use foundry_primitives::{
     FoundryReceiptEnvelope, FoundryTempoTxEnv, FoundryTransactionRequest, FoundryTxEnvelope,
-    FoundryTxReceipt, get_deposit_tx_parts,
+    FoundryTxReceipt,
 };
 use futures::channel::mpsc::{UnboundedSender, unbounded};
 use op_alloy_consensus::DEPOSIT_TX_TYPE_ID;
@@ -1245,12 +1245,10 @@ impl Backend {
             *tx.pending_transaction.sender(),
         );
 
-        // OP-stack specific: encode transaction envelope for L1 fee calculation
-        // TODO: This is disabled for Tempo. Re-enable when OP support is needed.
-        // if env.networks.is_optimism() {
-        //     env.tx.enveloped_tx =
-        //         Some(alloy_rlp::encode(tx.pending_transaction.transaction.as_ref()).into());
-        // }
+        // OP-stack L1 fee calculation: set enveloped_tx for Optimism mode
+        if env.networks.is_optimism() {
+            env.tx.enveloped_tx = Some(tx.pending_transaction.transaction.encoded_2718().into());
+        }
 
         let db = self.db.read().await;
         let mut inspector = self.build_inspector();
@@ -1643,10 +1641,10 @@ impl Backend {
             ..Default::default()
         };
         base.set_signed_authorization(authorization_list.unwrap_or_default());
-        env.tx = FoundryTempoTxEnv(TempoTxEnv { inner: base, ..Default::default() });
+        env.tx = FoundryTempoTxEnv::new(TempoTxEnv { inner: base, ..Default::default() });
 
         if let Some(nonce) = nonce {
-            env.tx.0.inner.nonce = nonce;
+            env.tx.inner.inner.nonce = nonce;
         }
 
         if env.evm_env.block_env.inner.basefee == 0 {
@@ -2629,7 +2627,7 @@ impl Backend {
         &self,
         address: Address,
         block_request: Option<BlockRequest>,
-    ) -> Result<Account, BlockchainError> {
+    ) -> Result<TrieAccount, BlockchainError> {
         self.with_database_at(block_request, |block_db, _| {
             let db = block_db.maybe_as_full_db().ok_or(BlockchainError::DataUnavailable)?;
             let account = db.get(&address).cloned().unwrap_or_default();
@@ -2637,7 +2635,7 @@ impl Backend {
             let code_hash = account.info.code_hash;
             let balance = account.info.balance;
             let nonce = account.info.nonce;
-            Ok(Account { balance, nonce, code_hash, storage_root })
+            Ok(TrieAccount { balance, nonce, code_hash, storage_root })
         })
         .await?
     }

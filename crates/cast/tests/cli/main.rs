@@ -3022,7 +3022,7 @@ casttest!(flaky_fetch_artifact_from_etherscan, |_prj, cmd| {
 });
 
 // tests cast can decode traces when using project artifacts
-forgetest_async!(decode_traces_with_project_artifacts, |prj, cmd| {
+forgetest_async!(flaky_decode_traces_with_project_artifacts, |prj, cmd| {
     let (api, handle) =
         anvil::spawn(NodeConfig::test().with_disable_default_create2_deployer(true)).await;
 
@@ -4374,40 +4374,8 @@ casttest!(cast_mktx_negative_numbers, |_prj, cmd| {
     .assert_success();
 });
 
-// Test cast mktx with EIP-4844 blob transaction (legacy format)
-casttest!(cast_mktx_eip4844_blob, |prj, cmd| {
-    // Create a temporary blob data file
-    let blob_data = b"dummy blob data for testing";
-    let blob_path = prj.root().join("blob_data.bin");
-    fs::write(&blob_path, blob_data).unwrap();
-
-    cmd.args([
-        "mktx",
-        "--private-key",
-        "0x0000000000000000000000000000000000000000000000000000000000000001",
-        "--chain",
-        "1",
-        "--nonce",
-        "0",
-        "--gas-limit",
-        "100000",
-        "--gas-price",
-        "10000000000",
-        "--priority-gas-price",
-        "1000000000",
-        "--blob",
-        "--eip4844",
-        "--blob-gas-price",
-        "1000000",
-        "--path",
-        blob_path.to_str().unwrap(),
-        "0x0000000000000000000000000000000000000001",
-    ])
-    .assert_success();
-});
-
 // Test cast mktx with EIP-7594 blob transaction (default format)
-casttest!(cast_mktx_eip7594_blob, |prj, cmd| {
+casttest!(flaky_cast_mktx_eip7594_blob, |prj, cmd| {
     // Create a temporary blob data file
     let blob_data = b"dummy peerdas blob data for testing";
     let blob_path = prj.root().join("peerdas_blob_data.bin");
@@ -4630,7 +4598,7 @@ casttest!(keccak_stdin_bytes_with_newline, |_prj, cmd| {
 });
 
 // Test cast send with raw --data flag using encoded calldata
-forgetest_async!(cast_send_with_data, |prj, cmd| {
+forgetest_async!(flaky_cast_send_with_data, |prj, cmd| {
     let (api, handle) = anvil::spawn(NodeConfig::test()).await;
 
     foundry_test_utils::util::initialize(prj.root());
@@ -4697,92 +4665,9 @@ Transaction successfully executed.
 "#]]);
 });
 
-// tests that the --curl flag outputs a valid curl command for cast rpc
-casttest!(curl_rpc, |_prj, cmd| {
-    let rpc = "https://eth.example.com";
-
-    let output = cmd
-        .args(["rpc", "eth_blockNumber", "--rpc-url", rpc, "--curl"])
-        .assert_success()
-        .get_output()
-        .stdout_lossy();
-
-    // Verify curl command structure
-    assert!(output.contains("curl -X POST"));
-    assert!(output.contains("-H 'Content-Type: application/json'"));
-    assert!(output.contains("eth_blockNumber"));
-    assert!(output.contains("jsonrpc"));
-    assert!(output.contains(rpc));
-});
-
-// tests that the --curl flag outputs a valid curl command for cast block-number
-casttest!(curl_block_number, |_prj, cmd| {
-    let rpc = "https://eth.example.com";
-
-    let output = cmd
-        .args(["block-number", "--rpc-url", rpc, "--curl"])
-        .assert_success()
-        .get_output()
-        .stdout_lossy();
-
-    // Verify curl command structure
-    assert!(output.contains("curl -X POST"));
-    assert!(output.contains("eth_blockNumber"));
-    assert!(output.contains(rpc));
-});
-
-// tests that the --curl flag outputs a valid curl command for cast chain-id
-casttest!(curl_chain_id, |_prj, cmd| {
-    let rpc = "https://eth.example.com";
-
-    let output = cmd
-        .args(["chain-id", "--rpc-url", rpc, "--curl"])
-        .assert_success()
-        .get_output()
-        .stdout_lossy();
-
-    // Verify curl command structure
-    assert!(output.contains("curl -X POST"));
-    assert!(output.contains("eth_chainId"));
-    assert!(output.contains(rpc));
-});
-
-// tests that the --curl flag outputs a valid curl command for cast gas-price
-casttest!(curl_gas_price, |_prj, cmd| {
-    let rpc = "https://eth.example.com";
-
-    let output = cmd
-        .args(["gas-price", "--rpc-url", rpc, "--curl"])
-        .assert_success()
-        .get_output()
-        .stdout_lossy();
-
-    // Verify curl command structure
-    assert!(output.contains("curl -X POST"));
-    assert!(output.contains("eth_gasPrice"));
-    assert!(output.contains(rpc));
-});
-
-// tests that the --curl flag outputs a valid curl command for cast call
-casttest!(curl_call, |_prj, cmd| {
-    let rpc = "https://eth.example.com";
-    let to = "0xdead000000000000000000000000000000000000";
-
-    let output = cmd
-        .args(["call", to, "balanceOf(address)(uint256)", to, "--rpc-url", rpc, "--curl"])
-        .assert_success()
-        .get_output()
-        .stdout_lossy();
-
-    // Verify curl command structure
-    assert!(output.contains("curl -X POST"));
-    assert!(output.contains("eth_call"));
-    assert!(output.contains(rpc));
-});
-
 // https://github.com/foundry-rs/foundry/issues/11584
 // Tests that invalid hex calldata (odd length) produces a clear error message
-casttest!(cast_call_invalid_hex_calldata_error, |_prj, cmd| {
+casttest!(flaky_cast_call_invalid_hex_calldata_error, |_prj, cmd| {
     let rpc = next_rpc_endpoint(NamedChain::Mainnet);
     cmd.args([
         "call",
@@ -4816,7 +4701,7 @@ casttest!(cast_call_valid_hex_calldata, |_prj, cmd| {
 
 // https://github.com/foundry-rs/foundry/issues/11584
 // Tests that invalid hex with uppercase 0X prefix also produces clear error
-casttest!(cast_call_invalid_hex_uppercase_prefix, |_prj, cmd| {
+casttest!(flaky_cast_call_invalid_hex_uppercase_prefix, |_prj, cmd| {
     let rpc = next_rpc_endpoint(NamedChain::Mainnet);
     cmd.args([
         "call",

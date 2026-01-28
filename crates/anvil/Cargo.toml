@@ -141,4 +141,5 @@ cmd = [
     "anvil-server/clap",
     "tokio/signal",
 ]
-js-tracer = ["revm-inspectors/js-tracer"]
+# Disabled: incompatible with reth at f0c9cb9 which doesn't handle DebugInspectorError::JsInspector
+# js-tracer = ["revm-inspectors/js-tracer"]

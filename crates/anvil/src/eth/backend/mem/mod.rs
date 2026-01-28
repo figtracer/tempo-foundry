@@ -871,18 +871,29 @@ impl Backend {
     /// Returns the system contracts for the current spec.
     pub fn system_contracts(&self) -> BTreeMap<SystemContract, Address> {
         let mut system_contracts = BTreeMap::<SystemContract, Address>::default();
+        let spec_id = self.spec_id();
 
-        // Tempo hardforks are all post-OSAKA, so both CANCUN and PRAGUE system contracts apply
-        system_contracts.extend(SystemContract::cancun());
-        system_contracts.extend(SystemContract::prague(None));
+        // Tempo is always post-OSAKA, so both CANCUN and PRAGUE system contracts apply
+        if self.is_tempo() || (spec_id as u8) >= (SpecId::CANCUN as u8) {
+            system_contracts.extend(SystemContract::cancun());
+        }
+        if self.is_tempo() || (spec_id as u8) >= (SpecId::PRAGUE as u8) {
+            system_contracts.extend(SystemContract::prague(None));
+        }
 
         system_contracts
     }
 
     /// Returns [`BlobParams`] corresponding to the current spec.
     pub fn blob_params(&self) -> BlobParams {
-        // Tempo hardforks are all post-OSAKA
-        BlobParams::osaka()
+        // Tempo is always post-OSAKA
+        if self.is_tempo() || (self.spec_id() as u8) >= (SpecId::OSAKA as u8) {
+            return BlobParams::osaka();
+        }
+        if (self.spec_id() as u8) >= (SpecId::PRAGUE as u8) {
+            return BlobParams::prague();
+        }
+        BlobParams::cancun()
     }
 
     /// Returns an error if EIP1559 is not active (pre Berlin)

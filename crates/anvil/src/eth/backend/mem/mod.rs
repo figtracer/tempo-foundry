@@ -1225,7 +1225,8 @@ impl Backend {
     where
         DB: DatabaseRef + ?Sized,
         I: Inspector<EthEvmContext<WrapDatabaseRef<&'db DB>>>
-            + Inspector<OpContext<WrapDatabaseRef<&'db DB>>>,
+            + Inspector<OpContext<WrapDatabaseRef<&'db DB>>>
+            + Inspector<tempo_revm::evm::TempoContext<WrapDatabaseRef<&'db DB>>>,
         WrapDatabaseRef<&'db DB>: Database<Error = DatabaseError>,
     {
         let mut evm = new_evm_with_inspector(WrapDatabaseRef(db), env, inspector);
@@ -2773,6 +2774,7 @@ impl Backend {
     where
         for<'a> I: Inspector<EthEvmContext<WrapDatabaseRef<&'a CacheDB<Box<&'a StateDb>>>>>
             + Inspector<OpContext<WrapDatabaseRef<&'a CacheDB<Box<&'a StateDb>>>>>
+            + Inspector<tempo_revm::evm::TempoContext<WrapDatabaseRef<&'a CacheDB<Box<&'a StateDb>>>>>
             + 'a,
         for<'a> F:
             FnOnce(ResultAndState<OpHaltReason>, CacheDB<Box<&'a StateDb>>, I, TxEnv, Env) -> T,

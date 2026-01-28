@@ -469,7 +469,9 @@ pub fn new_evm_with_inspector<DB, I>(
 ) -> EitherEvm<DB, I, PrecompilesMap>
 where
     DB: Database<Error = DatabaseError> + Debug,
-    I: Inspector<EthEvmContext<DB>> + Inspector<OpContext<DB>>,
+    I: Inspector<EthEvmContext<DB>>
+        + Inspector<OpContext<DB>>
+        + Inspector<tempo_revm::evm::TempoContext<DB>>,
 {
     if env.networks.is_optimism() {
         let evm_env = EvmEnv::new(
@@ -480,6 +482,23 @@ where
             env.evm_env.block_env.inner.clone(),
         );
         EitherEvm::Op(OpEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
+    } else if env.networks.is_tempo() {
+        // Use TempoEvm for Tempo mode - this includes built-in Tempo precompiles
+        use revm::context_interface::JournalTr;
+        let ctx = tempo_revm::evm::TempoContext {
+            journaled_state: {
+                let mut journal = revm::Journal::new(db);
+                journal.set_spec_id(env.evm_env.cfg_env.spec.into());
+                journal
+            },
+            block: env.evm_env.block_env.clone(),
+            cfg: env.evm_env.cfg_env.clone(),
+            tx: Default::default(),
+            chain: (),
+            local: revm::context::LocalContext::default(),
+            error: Ok(()),
+        };
+        EitherEvm::Tempo(tempo_revm::TempoEvm::new(ctx, inspector))
     } else {
         // Convert TempoHardfork-based env to SpecId-based env for non-Optimism chains
         let spec_id: SpecId = env.evm_env.cfg_env.spec.into();

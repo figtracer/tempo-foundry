@@ -1,4 +1,4 @@
-use alloy_evm::{Database, EthEvm, Evm, EvmEnv, eth::EthEvmContext};
+use alloy_evm::{Database, EthEvm, Evm, EvmEnv, eth::EthEvmContext, precompiles::PrecompilesMap};
 use alloy_op_evm::OpEvm;
 use alloy_primitives::{Address, Bytes};
 use op_revm::{OpContext, OpHaltReason, OpSpecId, OpTransaction, OpTransactionError};
@@ -6,12 +6,13 @@ use revm::{
     DatabaseCommit, Inspector,
     context::{
         BlockEnv, TxEnv,
-        result::{EVMError, ExecResultAndState, ExecutionResult, ResultAndState},
+        result::{EVMError, ExecResultAndState, ExecutionResult, HaltReason, ResultAndState},
     },
     handler::PrecompileProvider,
     interpreter::InterpreterResult,
     primitives::hardfork::SpecId,
 };
+use tempo_revm::{TempoHaltReason, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext};
 
 /// Alias for result type returned by [`Evm::transact`] methods.
 type EitherEvmResult<DBError, HaltReason, TxError> =
@@ -21,10 +22,11 @@ type EitherEvmResult<DBError, HaltReason, TxError> =
 type EitherExecResult<DBError, HaltReason, TxError> =
     Result<ExecutionResult<HaltReason>, EVMError<DBError, TxError>>;
 
-/// [`EitherEvm`] delegates its calls to one of the two evm implementations; either [`EthEvm`] or
-/// [`OpEvm`].
+/// [`EitherEvm`] delegates its calls to one of the three evm implementations: [`EthEvm`],
+/// [`OpEvm`], or [`tempo_revm::TempoEvm`].
 ///
-/// Calls are delegated to [`OpEvm`] only if optimism is enabled.
+/// Calls are delegated to [`OpEvm`] if optimism is enabled, or [`tempo_revm::TempoEvm`] if
+/// tempo is enabled.
 ///
 /// The call delegation is handled via its own implementation of the [`Evm`] trait.
 ///
@@ -33,6 +35,7 @@ type EitherExecResult<DBError, HaltReason, TxError> =
 /// However, the [`Evm::HaltReason`] and [`Evm::Error`] leverage the optimism [`OpHaltReason`] and
 /// [`OpTransactionError`] as these are supersets of the eth types. This makes it easier to map eth
 /// types to op types and also prevents ignoring of any error that maybe thrown by [`OpEvm`].
+/// Tempo errors are mapped to custom errors in these types.
 #[allow(clippy::large_enum_variant)]
 pub enum EitherEvm<DB, I, P>
 where
@@ -42,12 +45,14 @@ where
     Eth(EthEvm<DB, I, P>),
     /// [`OpEvm`] implementation.
     Op(OpEvm<DB, I, P>),
+    /// [`tempo_revm::TempoEvm`] implementation.
+    Tempo(tempo_revm::TempoEvm<DB, I>),
 }
 
 impl<DB, I, P> EitherEvm<DB, I, P>
 where
     DB: Database,
-    I: Inspector<EthEvmContext<DB>> + Inspector<OpContext<DB>>,
+    I: Inspector<EthEvmContext<DB>> + Inspector<OpContext<DB>> + Inspector<TempoContext<DB>>,
     P: PrecompileProvider<EthEvmContext<DB>, Output = InterpreterResult>
         + PrecompileProvider<OpContext<DB>, Output = InterpreterResult>,
 {
@@ -90,14 +95,71 @@ where
             EVMError::Custom(e) => EVMError::Custom(e),
         }
     }
+
+    /// Converts a [`tempo_revm::TempoEvm::transact`] result to [`EitherEvmResult`].
+    fn map_tempo_result(
+        &self,
+        result: Result<
+            ResultAndState<TempoHaltReason>,
+            EVMError<DB::Error, TempoInvalidTransaction>,
+        >,
+    ) -> EitherEvmResult<DB::Error, OpHaltReason, OpTransactionError> {
+        match result {
+            Ok(result) => Ok(ResultAndState {
+                result: result.result.map_haltreason(map_tempo_halt_to_op),
+                state: result.state,
+            }),
+            Err(e) => Err(map_tempo_err_to_op(e)),
+        }
+    }
+
+    /// Converts a [`tempo_revm::TempoEvm::transact_commit`] result to [`EitherExecResult`].
+    fn map_tempo_exec_result(
+        &self,
+        result: Result<ExecutionResult<TempoHaltReason>, EVMError<DB::Error, TempoInvalidTransaction>>,
+    ) -> EitherExecResult<DB::Error, OpHaltReason, OpTransactionError> {
+        match result {
+            Ok(result) => Ok(result.map_haltreason(map_tempo_halt_to_op)),
+            Err(e) => Err(map_tempo_err_to_op(e)),
+        }
+    }
+}
+
+/// Maps [`TempoHaltReason`] to [`OpHaltReason`].
+fn map_tempo_halt_to_op(halt: TempoHaltReason) -> OpHaltReason {
+    match halt {
+        TempoHaltReason::Ethereum(h) => OpHaltReason::Base(h),
+        TempoHaltReason::SubblockTxFeePayment => {
+            // Map Tempo-specific halt to a generic halt
+            OpHaltReason::Base(HaltReason::OpcodeNotFound)
+        }
+    }
+}
+
+/// Maps [`EVMError<DBError, TempoInvalidTransaction>`] to [`EVMError<DBError, OpTransactionError>`].
+fn map_tempo_err_to_op<DBError>(
+    err: EVMError<DBError, TempoInvalidTransaction>,
+) -> EVMError<DBError, OpTransactionError> {
+    match err {
+        EVMError::Transaction(tempo_err) => match tempo_err {
+            TempoInvalidTransaction::EthInvalidTransaction(eth_err) => {
+                EVMError::Transaction(OpTransactionError::Base(eth_err))
+            }
+            other => EVMError::Custom(other.to_string()),
+        },
+        EVMError::Database(e) => EVMError::Database(e),
+        EVMError::Header(e) => EVMError::Header(e),
+        EVMError::Custom(e) => EVMError::Custom(e),
+    }
 }
 
 impl<DB, I, P> Evm for EitherEvm<DB, I, P>
 where
     DB: Database,
-    I: Inspector<EthEvmContext<DB>> + Inspector<OpContext<DB>>,
+    I: Inspector<EthEvmContext<DB>> + Inspector<OpContext<DB>> + Inspector<TempoContext<DB>>,
     P: PrecompileProvider<EthEvmContext<DB>, Output = InterpreterResult>
-        + PrecompileProvider<OpContext<DB>, Output = InterpreterResult>,
+        + PrecompileProvider<OpContext<DB>, Output = InterpreterResult>
+        + From<PrecompilesMap>,
 {
     type DB = DB;
     type Error = EVMError<DB::Error, OpTransactionError>;
@@ -112,6 +174,7 @@ where
         match self {
             Self::Eth(evm) => evm.block(),
             Self::Op(evm) => evm.block(),
+            Self::Tempo(evm) => &evm.inner.ctx.block.inner,
         }
     }
 
@@ -119,6 +182,7 @@ where
         match self {
             Self::Eth(evm) => evm.chain_id(),
             Self::Op(evm) => evm.chain_id(),
+            Self::Tempo(evm) => evm.inner.ctx.cfg.chain_id,
         }
     }
 
@@ -126,6 +190,11 @@ where
         match self {
             Self::Eth(evm) => evm.components(),
             Self::Op(evm) => evm.components(),
+            Self::Tempo(_) => {
+                // Tempo variant doesn't support components() due to type mismatch
+                // This should not be called for Tempo - use specific accessors instead
+                panic!("components() not supported for Tempo EVM variant")
+            }
         }
     }
 
@@ -133,6 +202,9 @@ where
         match self {
             Self::Eth(evm) => evm.components_mut(),
             Self::Op(evm) => evm.components_mut(),
+            Self::Tempo(_) => {
+                panic!("components_mut() not supported for Tempo EVM variant")
+            }
         }
     }
 
@@ -140,6 +212,7 @@ where
         match self {
             Self::Eth(evm) => evm.db_mut(),
             Self::Op(evm) => evm.db_mut(),
+            Self::Tempo(evm) => &mut evm.inner.ctx.journaled_state.database,
         }
     }
 
@@ -150,6 +223,7 @@ where
         match self {
             Self::Eth(evm) => evm.into_db(),
             Self::Op(evm) => evm.into_db(),
+            Self::Tempo(evm) => evm.inner.ctx.journaled_state.database,
         }
     }
 
@@ -163,6 +237,14 @@ where
                 let (db, env) = evm.finish();
                 (db, map_env(env))
             }
+            Self::Tempo(evm) => {
+                let spec_id: SpecId = evm.inner.ctx.cfg.spec.into();
+                let env = EvmEnv::new(
+                    evm.inner.ctx.cfg.with_spec_and_mainnet_gas_params(spec_id),
+                    evm.inner.ctx.block.inner,
+                );
+                (evm.inner.ctx.journaled_state.database, env)
+            }
         }
     }
 
@@ -170,6 +252,12 @@ where
         match self {
             Self::Eth(evm) => evm.precompiles(),
             Self::Op(evm) => evm.precompiles(),
+            Self::Tempo(evm) => {
+                // SAFETY: Same as precompiles_mut - the cast is safe when P = PrecompilesMap
+                unsafe {
+                    std::mem::transmute::<&PrecompilesMap, &P>(&evm.inner.precompiles)
+                }
+            }
         }
     }
 
@@ -177,6 +265,15 @@ where
         match self {
             Self::Eth(evm) => evm.precompiles_mut(),
             Self::Op(evm) => evm.precompiles_mut(),
+            Self::Tempo(evm) => {
+                // SAFETY: This cast is safe because when EitherEvm is used with P = PrecompilesMap
+                // (which is always the case in Anvil), the Tempo variant's precompiles type matches.
+                // The PrecompilesMap is the same concrete type in both cases.
+                // We use unsafe transmute here because Rust doesn't have specialization.
+                unsafe {
+                    std::mem::transmute::<&mut PrecompilesMap, &mut P>(&mut evm.inner.precompiles)
+                }
+            }
         }
     }
 
@@ -184,6 +281,9 @@ where
         match self {
             Self::Eth(evm) => evm.inspector(),
             Self::Op(evm) => evm.inspector(),
+            Self::Tempo(_) => {
+                panic!("inspector() not supported for Tempo EVM variant")
+            }
         }
     }
 
@@ -191,6 +291,9 @@ where
         match self {
             Self::Eth(evm) => evm.inspector_mut(),
             Self::Op(evm) => evm.inspector_mut(),
+            Self::Tempo(_) => {
+                panic!("inspector_mut() not supported for Tempo EVM variant")
+            }
         }
     }
 
@@ -198,6 +301,9 @@ where
         match self {
             Self::Eth(evm) => evm.enable_inspector(),
             Self::Op(evm) => evm.enable_inspector(),
+            Self::Tempo(_) => {
+                // Tempo always has inspector enabled
+            }
         }
     }
 
@@ -205,6 +311,9 @@ where
         match self {
             Self::Eth(evm) => evm.disable_inspector(),
             Self::Op(evm) => evm.disable_inspector(),
+            Self::Tempo(_) => {
+                // Tempo doesn't support disabling inspector
+            }
         }
     }
 
@@ -212,6 +321,10 @@ where
         match self {
             Self::Eth(evm) => evm.set_inspector_enabled(enabled),
             Self::Op(evm) => evm.set_inspector_enabled(enabled),
+            Self::Tempo(_) => {
+                // Tempo doesn't support toggling inspector
+                let _ = enabled;
+            }
         }
     }
 
@@ -222,6 +335,13 @@ where
         match self {
             Self::Eth(evm) => evm.into_env(),
             Self::Op(evm) => map_env(evm.into_env()),
+            Self::Tempo(evm) => {
+                let spec_id: SpecId = evm.inner.ctx.cfg.spec.into();
+                EvmEnv::new(
+                    evm.inner.ctx.cfg.with_spec_and_mainnet_gas_params(spec_id),
+                    evm.inner.ctx.block.inner,
+                )
+            }
         }
     }
 
@@ -235,6 +355,14 @@ where
                 self.map_eth_result(eth)
             }
             Self::Op(evm) => evm.transact(tx),
+            Self::Tempo(evm) => {
+                use revm::ExecuteEvm;
+                let tx_env = tx.into_tx_env();
+                // Convert OpTransaction<TxEnv> to TempoTxEnv
+                let tempo_tx = TempoTxEnv::from(tx_env.base);
+                let result = evm.transact(tempo_tx);
+                self.map_tempo_result(result)
+            }
         }
     }
 
@@ -251,6 +379,13 @@ where
                 self.map_exec_result(eth)
             }
             Self::Op(evm) => evm.transact_commit(tx),
+            Self::Tempo(evm) => {
+                use revm::ExecuteCommitEvm;
+                let tx_env = tx.into_tx_env();
+                let tempo_tx = TempoTxEnv::from(tx_env.base);
+                let result = evm.transact_commit(tempo_tx);
+                self.map_tempo_exec_result(result)
+            }
         }
     }
 
@@ -264,6 +399,12 @@ where
                 self.map_eth_result(res)
             }
             Self::Op(evm) => evm.transact_raw(tx),
+            Self::Tempo(evm) => {
+                use revm::ExecuteEvm;
+                let tempo_tx = TempoTxEnv::from(tx.base);
+                let result = evm.transact(tempo_tx);
+                self.map_tempo_result(result)
+            }
         }
     }
 
@@ -279,6 +420,11 @@ where
                 self.map_eth_result(eth)
             }
             Self::Op(evm) => evm.transact_system_call(caller, contract, data),
+            Self::Tempo(_evm) => {
+                // Tempo doesn't have a specific system call implementation
+                // Use a regular call with system-like parameters
+                Err(EVMError::Custom("system calls not supported for Tempo".to_string()))
+            }
         }
     }
 }

@@ -301,7 +301,7 @@ alloy-op-evm = "0.26.3"
 
 # revm
 revm = { version = "34.0.0", default-features = false }
-revm-inspectors = { version = "0.34.0", features = ["serde"] }
+revm-inspectors = { version = "0.34.1", features = ["serde"] }
 op-revm = { version = "15.0.0", default-features = false }
 
 ## cli
@@ -398,13 +398,13 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "a9e5c9e0a1645d20c63f3480f7f0561cd28f19c0" }
-tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "a9e5c9e0a1645d20c63f3480f7f0561cd28f19c0" }
-tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "a9e5c9e0a1645d20c63f3480f7f0561cd28f19c0" }
-tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "a9e5c9e0a1645d20c63f3480f7f0561cd28f19c0" }
-tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "a9e5c9e0a1645d20c63f3480f7f0561cd28f19c0" }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "a9e5c9e0a1645d20c63f3480f7f0561cd28f19c0" }
-tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "a9e5c9e0a1645d20c63f3480f7f0561cd28f19c0" }
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "48d58a5bc9bcc2ec111f451565a36dc929c16c77" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "48d58a5bc9bcc2ec111f451565a36dc929c16c77" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "48d58a5bc9bcc2ec111f451565a36dc929c16c77" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "48d58a5bc9bcc2ec111f451565a36dc929c16c77" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "48d58a5bc9bcc2ec111f451565a36dc929c16c77" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "48d58a5bc9bcc2ec111f451565a36dc929c16c77" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "48d58a5bc9bcc2ec111f451565a36dc929c16c77" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 
@@ -465,7 +465,7 @@ rexpect = { git = "https://github.com/rust-cli/rexpect", rev = "2ed0b1898d7edaf6
 ## revm
 # revm = { git = "https://github.com/bluealloy/revm.git", rev = "7e59936" }
 # op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "7e59936" }
-revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", tag = "v0.34.0" }
+# revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", tag = "v0.34.1" }
 
 ## foundry
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }

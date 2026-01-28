@@ -1481,17 +1481,20 @@ Tip: Run `forge test --rerun` to retry only the 2 failed tests
 "#]]);
 });
 
-forgetest_init!(#[ignore = "tempo skip - flaky invariant test"] invariant_warp_and_roll, |prj, cmd| {
-    prj.update_config(|config| {
-        config.fuzz.seed = Some(U256::from(119u32));
-        config.invariant.max_time_delay = Some(604800);
-        config.invariant.max_block_delay = Some(60480);
-        config.invariant.shrink_run_limit = 0;
-    });
+forgetest_init!(
+    #[ignore = "tempo skip - flaky invariant test"]
+    invariant_warp_and_roll,
+    |prj, cmd| {
+        prj.update_config(|config| {
+            config.fuzz.seed = Some(U256::from(119u32));
+            config.invariant.max_time_delay = Some(604800);
+            config.invariant.max_block_delay = Some(60480);
+            config.invariant.shrink_run_limit = 0;
+        });
 
-    prj.add_test(
-        "InvariantWarpAndRoll.t.sol",
-        r#"
+        prj.add_test(
+            "InvariantWarpAndRoll.t.sol",
+            r#"
 import "forge-std/Test.sol";
 
 contract Counter {
@@ -1523,9 +1526,9 @@ contract InvariantWarpAndRoll {
     }
 }
 "#,
-    );
+        );
 
-    cmd.args(["test", "--mt", "invariant_warp"]).assert_failure().stdout_eq(str![[r#"
+        cmd.args(["test", "--mt", "invariant_warp"]).assert_failure().stdout_eq(str![[r#"
 [COMPILING_FILES] with [SOLC_VERSION]
 [SOLC_VERSION] [ELAPSED]
 Compiler run successful!
@@ -1544,7 +1547,7 @@ Ran 1 test for test/InvariantWarpAndRoll.t.sol:InvariantWarpAndRoll
 
 "#]]);
 
-    cmd.forge_fuse().args(["test", "--mt", "invariant_roll"]).assert_failure().stdout_eq(str![[r#"
+        cmd.forge_fuse().args(["test", "--mt", "invariant_roll"]).assert_failure().stdout_eq(str![[r#"
 No files changed, compilation skipped
 
 Ran 1 test for test/InvariantWarpAndRoll.t.sol:InvariantWarpAndRoll
@@ -1575,13 +1578,13 @@ Ran 1 test for test/InvariantWarpAndRoll.t.sol:InvariantWarpAndRoll
 
 "#]]);
 
-    // Test that time and block advance in target contract as well.
-    prj.update_config(|config| {
-        config.invariant.fail_on_revert = true;
-    });
-    prj.add_test(
-        "HandlerWarpAndRoll.t.sol",
-        r#"
+        // Test that time and block advance in target contract as well.
+        prj.update_config(|config| {
+            config.invariant.fail_on_revert = true;
+        });
+        prj.add_test(
+            "HandlerWarpAndRoll.t.sol",
+            r#"
 import "forge-std/Test.sol";
 
 contract Counter {
@@ -1608,9 +1611,9 @@ contract HandlerWarpAndRoll {
     }
 }
 "#,
-    );
+        );
 
-    cmd.forge_fuse().args(["test", "--mt", "invariant_handler"]).assert_failure().stdout_eq(str![[r#"
+        cmd.forge_fuse().args(["test", "--mt", "invariant_handler"]).assert_failure().stdout_eq(str![[r#"
 [COMPILING_FILES] with [SOLC_VERSION]
 [SOLC_VERSION] [ELAPSED]
 Compiler run successful!
@@ -1628,4 +1631,5 @@ Ran 1 test for test/HandlerWarpAndRoll.t.sol:HandlerWarpAndRoll
 ...
 
 "#]]);
-});
+    }
+);

@@ -1466,24 +1466,28 @@ casttest!(calldata_array, |_prj, cmd| {
 });
 
 // <https://github.com/foundry-rs/foundry/issues/2705>
-casttest!(#[ignore = "tempo skip - mainnet fork"] run_succeeds, |_prj, cmd| {
-    let rpc = next_http_archive_rpc_url();
-    cmd.args([
-        "run",
-        "-v",
-        "0x2d951c5c95d374263ca99ad9c20c9797fc714330a8037429a3aa4c83d456f845",
-        "--quick",
-        "--rpc-url",
-        rpc.as_str(),
-    ])
-    .assert_success()
-    .stdout_eq(str![[r#"
+casttest!(
+    #[ignore = "tempo skip - mainnet fork"]
+    run_succeeds,
+    |_prj, cmd| {
+        let rpc = next_http_archive_rpc_url();
+        cmd.args([
+            "run",
+            "-v",
+            "0x2d951c5c95d374263ca99ad9c20c9797fc714330a8037429a3aa4c83d456f845",
+            "--quick",
+            "--rpc-url",
+            rpc.as_str(),
+        ])
+        .assert_success()
+        .stdout_eq(str![[r#"
 ...
 Transaction successfully executed.
 [GAS]
 
 "#]]);
-});
+    }
+);
 
 // tests that `cast --to-base` commands are working correctly.
 casttest!(to_base, |_prj, cmd| {
@@ -1514,11 +1518,14 @@ casttest!(to_base, |_prj, cmd| {
 });
 
 // tests that revert reason is only present if transaction has reverted.
-casttest!(#[ignore = "tempo skip - mainnet fork"] receipt_revert_reason, |_prj, cmd| {
-    let rpc = next_http_archive_rpc_url();
+casttest!(
+    #[ignore = "tempo skip - mainnet fork"]
+    receipt_revert_reason,
+    |_prj, cmd| {
+        let rpc = next_http_archive_rpc_url();
 
-    // <https://etherscan.io/tx/0x44f2aaa351460c074f2cb1e5a9e28cbc7d83f33e425101d2de14331c7b7ec31e>
-    cmd.args([
+        // <https://etherscan.io/tx/0x44f2aaa351460c074f2cb1e5a9e28cbc7d83f33e425101d2de14331c7b7ec31e>
+        cmd.args([
         "receipt",
         "0x44f2aaa351460c074f2cb1e5a9e28cbc7d83f33e425101d2de14331c7b7ec31e",
         "--rpc-url",
@@ -1545,10 +1552,10 @@ blobGasUsed          {}
 to                   0x91da5bf3F8Eb72724E6f50Ec6C3D199C6355c59c
 "#,"", "", "", ""));
 
-    let rpc = next_http_archive_rpc_url();
+        let rpc = next_http_archive_rpc_url();
 
-    // <https://etherscan.io/tx/0x0e07d8b53ed3d91314c80e53cf25bcde02084939395845cbb625b029d568135c>
-    cmd.cast_fuse()
+        // <https://etherscan.io/tx/0x0e07d8b53ed3d91314c80e53cf25bcde02084939395845cbb625b029d568135c>
+        cmd.cast_fuse()
         .args([
             "receipt",
             "0x0e07d8b53ed3d91314c80e53cf25bcde02084939395845cbb625b029d568135c",
@@ -1576,12 +1583,16 @@ blobGasUsed          {}
 to                   0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
 revertReason         [..]Transaction too old, data: "0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000135472616e73616374696f6e20746f6f206f6c6400000000000000000000000000"
 "#,"","","",""));
-});
+    }
+);
 // tests that the revert reason is loaded using the correct `from` address.
-casttest!(#[ignore = "tempo skip - mainnet fork"] revert_reason_from, |_prj, cmd| {
-    let rpc = next_rpc_endpoint(NamedChain::Sepolia);
-    // https://sepolia.etherscan.io/tx/0x10ee70cf9f5ced5c515e8d53bfab5ea9f5c72cd61b25fba455c8355ee286c4e4
-    cmd.args([
+casttest!(
+    #[ignore = "tempo skip - mainnet fork"]
+    revert_reason_from,
+    |_prj, cmd| {
+        let rpc = next_rpc_endpoint(NamedChain::Sepolia);
+        // https://sepolia.etherscan.io/tx/0x10ee70cf9f5ced5c515e8d53bfab5ea9f5c72cd61b25fba455c8355ee286c4e4
+        cmd.args([
         "receipt",
         "0x10ee70cf9f5ced5c515e8d53bfab5ea9f5c72cd61b25fba455c8355ee286c4e4",
         "--rpc-url",
@@ -1608,7 +1619,8 @@ blobGasUsed          {}
 to                   0x91b5d4111a4C038153b24e31F75ccdC47123595d
 revertReason         Counter is too large, data: "0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000014436f756e74657220697320746f6f206c61726765000000000000000000000000"
 "#, "", "", "", ""));
-});
+    }
+);
 
 // tests that `cast --parse-bytes32-address` command is working correctly.
 casttest!(parse_bytes32_address, |_prj, cmd| {
@@ -2005,19 +2017,22 @@ casttest!(tx_to_request_json, |_prj, cmd| {
 "#]]);
 });
 
-casttest!(#[ignore = "tempo skip - mainnet fork"] tx_using_sender_and_nonce, |_prj, cmd| {
-    let rpc = next_http_archive_rpc_url();
-    // <https://etherscan.io/tx/0x5bcd22734cca2385dc25b2d38a3d33a640c5961bd46d390dff184c894204b594>
-    let args = vec![
-        "tx",
-        "--from",
-        "0x4648451b5F87FF8F0F7D622bD40574bb97E25980",
-        "--nonce",
-        "113642",
-        "--rpc-url",
-        rpc.as_str(),
-    ];
-    cmd.args(args).assert_success().stdout_eq(str![[r#"
+casttest!(
+    #[ignore = "tempo skip - mainnet fork"]
+    tx_using_sender_and_nonce,
+    |_prj, cmd| {
+        let rpc = next_http_archive_rpc_url();
+        // <https://etherscan.io/tx/0x5bcd22734cca2385dc25b2d38a3d33a640c5961bd46d390dff184c894204b594>
+        let args = vec![
+            "tx",
+            "--from",
+            "0x4648451b5F87FF8F0F7D622bD40574bb97E25980",
+            "--nonce",
+            "113642",
+            "--rpc-url",
+            rpc.as_str(),
+        ];
+        cmd.args(args).assert_success().stdout_eq(str![[r#"
 
 blockHash            0x29518c1cea251b1bda5949a9b039722604ec1fb99bf9d8124cfe001c95a50bdc
 blockNumber          22287055
@@ -2040,7 +2055,8 @@ value                0
 yParity              1
 ...
 "#]]);
-});
+    }
+);
 
 // ensure receipt or code is required
 casttest!(send_requires_to, |_prj, cmd| {

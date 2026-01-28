@@ -462,7 +462,7 @@ impl Backend {
             let chain_id = self.env.read().evm_env.cfg_env.chain_id;
             let timestamp = self.genesis.timestamp;
             // Get genesis accounts to fund with fee tokens
-            let test_accounts: Vec<Address> = self.genesis.accounts.iter().copied().collect();
+            let test_accounts: Vec<Address> = self.genesis.accounts.to_vec();
             let mut db = self.db.write().await;
             crate::eth::backend::tempo::initialize_tempo_precompiles(
                 &mut **db,

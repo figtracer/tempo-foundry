@@ -2994,7 +2994,7 @@ casttest!(flaky_fetch_artifact_from_etherscan, |_prj, cmd| {
 
 // tests cast can decode traces when using project artifacts
 forgetest_async!(
-    #[ignore = "tempo skip - requires anvil features"]
+    #[ignore = "tempo skip - cast run requires native ETH balance"]
     decode_traces_with_project_artifacts,
     |prj, cmd| {
         let (api, handle) =
@@ -4526,7 +4526,7 @@ casttest!(keccak_stdin_bytes_with_newline, |_prj, cmd| {
 
 // Test cast send with raw --data flag using encoded calldata
 forgetest_async!(
-    #[ignore = "tempo skip - requires anvil features"]
+    #[ignore = "tempo skip - cast run requires native ETH balance"]
     cast_send_with_data,
     |prj, cmd| {
         let (api, handle) = anvil::spawn(NodeConfig::test()).await;

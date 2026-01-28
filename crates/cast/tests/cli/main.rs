@@ -2993,14 +2993,17 @@ casttest!(flaky_fetch_artifact_from_etherscan, |_prj, cmd| {
 });
 
 // tests cast can decode traces when using project artifacts
-forgetest_async!(flaky_decode_traces_with_project_artifacts, |prj, cmd| {
-    let (api, handle) =
-        anvil::spawn(NodeConfig::test().with_disable_default_create2_deployer(true)).await;
+forgetest_async!(
+    #[ignore = "tempo skip - requires anvil features"]
+    decode_traces_with_project_artifacts,
+    |prj, cmd| {
+        let (api, handle) =
+            anvil::spawn(NodeConfig::test().with_disable_default_create2_deployer(true)).await;
 
-    foundry_test_utils::util::initialize(prj.root());
-    prj.add_source(
-        "LocalProjectContract",
-        r#"
+        foundry_test_utils::util::initialize(prj.root());
+        prj.add_source(
+            "LocalProjectContract",
+            r#"
 contract LocalProjectContract {
     event LocalProjectContractCreated(address owner);
 
@@ -3009,10 +3012,10 @@ contract LocalProjectContract {
     }
 }
    "#,
-    );
-    prj.add_script(
-        "LocalProjectScript",
-        r#"
+        );
+        prj.add_script(
+            "LocalProjectScript",
+            r#"
 import "forge-std/Script.sol";
 import {LocalProjectContract} from "../src/LocalProjectContract.sol";
 
@@ -3024,46 +3027,52 @@ contract LocalProjectScript is Script {
     }
 }
    "#,
-    );
+        );
 
-    cmd.args([
-        "script",
-        "--private-key",
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        "--rpc-url",
-        &handle.http_endpoint(),
-        "--broadcast",
-        "LocalProjectScript",
-    ]);
+        cmd.args([
+            "script",
+            "--private-key",
+            "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+            "--rpc-url",
+            &handle.http_endpoint(),
+            "--broadcast",
+            "LocalProjectScript",
+        ]);
 
-    cmd.assert_success();
+        cmd.assert_success();
 
-    let tx_hash = api
-        .transaction_by_block_number_and_index(BlockNumberOrTag::Latest, Index::from(0))
-        .await
-        .unwrap()
-        .unwrap()
-        .tx_hash();
+        let tx_hash = api
+            .transaction_by_block_number_and_index(BlockNumberOrTag::Latest, Index::from(0))
+            .await
+            .unwrap()
+            .unwrap()
+            .tx_hash();
 
-    // Assert cast with local artifacts from outside the project.
-    cmd.cast_fuse()
-        .args(["run", "--la", format!("{tx_hash}").as_str(), "--rpc-url", &handle.http_endpoint()])
-        .assert_success()
-        .stdout_eq(str![[r#"
+        // Assert cast with local artifacts from outside the project.
+        cmd.cast_fuse()
+            .args([
+                "run",
+                "--la",
+                format!("{tx_hash}").as_str(),
+                "--rpc-url",
+                &handle.http_endpoint(),
+            ])
+            .assert_success()
+            .stdout_eq(str![[r#"
 Executing previous transactions from the block.
 Compiling project to generate artifacts
 Nothing to compile
 
 "#]]);
 
-    // Run cast from project dir.
-    cmd.cast_fuse().set_current_dir(prj.root());
+        // Run cast from project dir.
+        cmd.cast_fuse().set_current_dir(prj.root());
 
-    // Assert cast without local artifacts cannot decode traces.
-    cmd.cast_fuse()
-        .args(["run", format!("{tx_hash}").as_str(), "--rpc-url", &handle.http_endpoint()])
-        .assert_success()
-        .stdout_eq(str![[r#"
+        // Assert cast without local artifacts cannot decode traces.
+        cmd.cast_fuse()
+            .args(["run", format!("{tx_hash}").as_str(), "--rpc-url", &handle.http_endpoint()])
+            .assert_success()
+            .stdout_eq(str![[r#"
 Executing previous transactions from the block.
 Traces:
   [..] → new <unknown>@0x5FbDB2315678afecb367f032d93F642f64180aa3
@@ -3077,11 +3086,17 @@ Transaction successfully executed.
 
 "#]]);
 
-    // Assert cast with local artifacts can decode traces.
-    cmd.cast_fuse()
-        .args(["run", "--la", format!("{tx_hash}").as_str(), "--rpc-url", &handle.http_endpoint()])
-        .assert_success()
-        .stdout_eq(str![[r#"
+        // Assert cast with local artifacts can decode traces.
+        cmd.cast_fuse()
+            .args([
+                "run",
+                "--la",
+                format!("{tx_hash}").as_str(),
+                "--rpc-url",
+                &handle.http_endpoint(),
+            ])
+            .assert_success()
+            .stdout_eq(str![[r#"
 Executing previous transactions from the block.
 Compiling project to generate artifacts
 No files changed, compilation skipped
@@ -3095,7 +3110,8 @@ Transaction successfully executed.
 [GAS]
 
 "#]]);
-});
+    }
+);
 
 // tests cast can decode external libraries traces with project cached selectors
 forgetest_async!(flaky_decode_external_libraries_with_cached_selectors, |prj, cmd| {
@@ -4282,35 +4298,39 @@ casttest!(cast_mktx_negative_numbers, |_prj, cmd| {
 });
 
 // Test cast mktx with EIP-7594 blob transaction (default format)
-casttest!(flaky_cast_mktx_eip7594_blob, |prj, cmd| {
-    // Create a temporary blob data file
-    let blob_data = b"dummy peerdas blob data for testing";
-    let blob_path = prj.root().join("peerdas_blob_data.bin");
-    fs::write(&blob_path, blob_data).unwrap();
+casttest!(
+    #[ignore = "tempo skip - EIP-7594 not supported"]
+    cast_mktx_eip7594_blob,
+    |prj, cmd| {
+        // Create a temporary blob data file
+        let blob_data = b"dummy peerdas blob data for testing";
+        let blob_path = prj.root().join("peerdas_blob_data.bin");
+        fs::write(&blob_path, blob_data).unwrap();
 
-    cmd.args([
-        "mktx",
-        "--private-key",
-        "0x0000000000000000000000000000000000000000000000000000000000000001",
-        "--chain",
-        "1",
-        "--nonce",
-        "0",
-        "--gas-limit",
-        "100000",
-        "--gas-price",
-        "10000000000",
-        "--priority-gas-price",
-        "1000000000",
-        "--blob",
-        "--blob-gas-price",
-        "1000000",
-        "--path",
-        blob_path.to_str().unwrap(),
-        "0x0000000000000000000000000000000000000001",
-    ])
-    .assert_success();
-});
+        cmd.args([
+            "mktx",
+            "--private-key",
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "--chain",
+            "1",
+            "--nonce",
+            "0",
+            "--gas-limit",
+            "100000",
+            "--gas-price",
+            "10000000000",
+            "--priority-gas-price",
+            "1000000000",
+            "--blob",
+            "--blob-gas-price",
+            "1000000",
+            "--path",
+            blob_path.to_str().unwrap(),
+            "0x0000000000000000000000000000000000000001",
+        ])
+        .assert_success();
+    }
+);
 
 // Test cast access-list with negative numbers
 casttest!(cast_access_list_negative_numbers, |_prj, cmd| {
@@ -4505,59 +4525,62 @@ casttest!(keccak_stdin_bytes_with_newline, |_prj, cmd| {
 });
 
 // Test cast send with raw --data flag using encoded calldata
-forgetest_async!(flaky_cast_send_with_data, |prj, cmd| {
-    let (api, handle) = anvil::spawn(NodeConfig::test()).await;
+forgetest_async!(
+    #[ignore = "tempo skip - requires anvil features"]
+    cast_send_with_data,
+    |prj, cmd| {
+        let (api, handle) = anvil::spawn(NodeConfig::test()).await;
 
-    foundry_test_utils::util::initialize(prj.root());
-    prj.initialize_default_contracts();
+        foundry_test_utils::util::initialize(prj.root());
+        prj.initialize_default_contracts();
 
-    // Deploy counter contract
-    cmd.args([
-        "script",
-        "--private-key",
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        "--rpc-url",
-        &handle.http_endpoint(),
-        "--broadcast",
-        "CounterScript",
-    ])
-    .assert_success();
-
-    // setNumber(111) encoded: selector 0x3fb5c1cb + uint256(111)
-    let calldata = "0x3fb5c1cb000000000000000000000000000000000000000000000000000000000000006f";
-
-    // Send tx using --data instead of sig+args
-    cmd.cast_fuse()
-        .args([
-            "send",
-            "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-            "--data",
-            calldata,
+        // Deploy counter contract
+        cmd.args([
+            "script",
             "--private-key",
             "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
             "--rpc-url",
             &handle.http_endpoint(),
+            "--broadcast",
+            "CounterScript",
         ])
         .assert_success();
 
-    // Verify via trace that setNumber(111) was called
-    let tx_hash = api
-        .transaction_by_block_number_and_index(BlockNumberOrTag::Latest, Index::from(0))
-        .await
-        .unwrap()
-        .unwrap()
-        .tx_hash();
+        // setNumber(111) encoded: selector 0x3fb5c1cb + uint256(111)
+        let calldata = "0x3fb5c1cb000000000000000000000000000000000000000000000000000000000000006f";
 
-    cmd.cast_fuse()
-        .args([
-            "run",
-            format!("{tx_hash}").as_str(),
-            "-vvvvv",
-            "--rpc-url",
-            &handle.http_endpoint(),
-        ])
-        .assert_success()
-        .stdout_eq(str![[r#"
+        // Send tx using --data instead of sig+args
+        cmd.cast_fuse()
+            .args([
+                "send",
+                "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+                "--data",
+                calldata,
+                "--private-key",
+                "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+                "--rpc-url",
+                &handle.http_endpoint(),
+            ])
+            .assert_success();
+
+        // Verify via trace that setNumber(111) was called
+        let tx_hash = api
+            .transaction_by_block_number_and_index(BlockNumberOrTag::Latest, Index::from(0))
+            .await
+            .unwrap()
+            .unwrap()
+            .tx_hash();
+
+        cmd.cast_fuse()
+            .args([
+                "run",
+                format!("{tx_hash}").as_str(),
+                "-vvvvv",
+                "--rpc-url",
+                &handle.http_endpoint(),
+            ])
+            .assert_success()
+            .stdout_eq(str![[r#"
 Executing previous transactions from the block.
 Traces:
   [..] 0x5FbDB2315678afecb367f032d93F642f64180aa3::setNumber(111)
@@ -4570,26 +4593,31 @@ Transaction successfully executed.
 [GAS]
 
 "#]]);
-});
+    }
+);
 
 // https://github.com/foundry-rs/foundry/issues/11584
 // Tests that invalid hex calldata (odd length) produces a clear error message
-casttest!(flaky_cast_call_invalid_hex_calldata_error, |_prj, cmd| {
-    let rpc = next_rpc_endpoint(NamedChain::Mainnet);
-    cmd.args([
-        "call",
-        "0xdead000000000000000000000000000000000000",
-        "--data",
-        "0x0", // Invalid: odd length hex
-        "--rpc-url",
-        rpc.as_str(),
-    ])
-    .assert_failure()
-    .stderr_eq(str![[r#"
+casttest!(
+    #[ignore = "tempo skip - mainnet RPC"]
+    cast_call_invalid_hex_calldata_error,
+    |_prj, cmd| {
+        let rpc = next_rpc_endpoint(NamedChain::Mainnet);
+        cmd.args([
+            "call",
+            "0xdead000000000000000000000000000000000000",
+            "--data",
+            "0x0", // Invalid: odd length hex
+            "--rpc-url",
+            rpc.as_str(),
+        ])
+        .assert_failure()
+        .stderr_eq(str![[r#"
 Error: Invalid hex calldata '0x0': odd number of digits
 
 "#]]);
-});
+    }
+);
 
 // https://github.com/foundry-rs/foundry/issues/11584
 // Tests that valid hex calldata works correctly
@@ -4608,19 +4636,23 @@ casttest!(cast_call_valid_hex_calldata, |_prj, cmd| {
 
 // https://github.com/foundry-rs/foundry/issues/11584
 // Tests that invalid hex with uppercase 0X prefix also produces clear error
-casttest!(flaky_cast_call_invalid_hex_uppercase_prefix, |_prj, cmd| {
-    let rpc = next_rpc_endpoint(NamedChain::Mainnet);
-    cmd.args([
-        "call",
-        "0xdead000000000000000000000000000000000000",
-        "--data",
-        "0X1", // Invalid: odd length hex with uppercase prefix
-        "--rpc-url",
-        rpc.as_str(),
-    ])
-    .assert_failure()
-    .stderr_eq(str![[r#"
+casttest!(
+    #[ignore = "tempo skip - mainnet RPC"]
+    cast_call_invalid_hex_uppercase_prefix,
+    |_prj, cmd| {
+        let rpc = next_rpc_endpoint(NamedChain::Mainnet);
+        cmd.args([
+            "call",
+            "0xdead000000000000000000000000000000000000",
+            "--data",
+            "0X1", // Invalid: odd length hex with uppercase prefix
+            "--rpc-url",
+            rpc.as_str(),
+        ])
+        .assert_failure()
+        .stderr_eq(str![[r#"
 Error: Invalid hex calldata '0X1': odd number of digits
 
 "#]]);
-});
+    }
+);

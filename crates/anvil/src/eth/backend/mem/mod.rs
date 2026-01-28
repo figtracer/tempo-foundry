@@ -1,4 +1,8 @@
 //! In-memory blockchain backend.
+
+// js-tracer feature is disabled due to reth incompatibility
+#![allow(unexpected_cfgs)]
+
 use self::state::trie_storage;
 use super::executor::new_evm_with_inspector;
 use crate::{

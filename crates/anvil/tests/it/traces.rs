@@ -1,3 +1,6 @@
+// js-tracer feature is disabled due to reth incompatibility
+#![allow(unexpected_cfgs)]
+
 use std::collections::HashMap;
 
 use crate::{

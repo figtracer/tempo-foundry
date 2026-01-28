@@ -5233,7 +5233,6 @@ dependencies = [
  "revm-inspectors",
  "serde",
  "serde_json",
- "tempo-contracts",
  "tempo-precompiles",
  "tempo-revm",
  "thiserror 2.0.18",

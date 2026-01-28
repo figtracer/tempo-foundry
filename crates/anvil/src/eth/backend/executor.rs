@@ -93,8 +93,7 @@ impl ExecutedTransaction {
                     logs_bloom: receipt_with_bloom.logs_bloom,
                 })
             }
-            // Tempo transactions use EIP-1559 style receipts
-            FoundryTxEnvelope::Tempo(_) => FoundryReceiptEnvelope::Eip1559(receipt_with_bloom),
+            FoundryTxEnvelope::Tempo(_) => FoundryReceiptEnvelope::Tempo(receipt_with_bloom),
         }
     }
 }

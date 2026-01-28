@@ -114,6 +114,7 @@ use foundry_primitives::{
 };
 use futures::channel::mpsc::{UnboundedSender, unbounded};
 use op_alloy_consensus::DEPOSIT_TX_TYPE_ID;
+use tempo_primitives::TEMPO_TX_TYPE_ID;
 use op_revm::{OpContext, OpHaltReason, OpTransaction};
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use revm::{
@@ -3876,6 +3877,42 @@ pub fn transaction_build(
             }
             Err(_) => {
                 error!(target: "backend", "failed to serialize deposit transaction");
+            }
+        }
+    }
+
+    // Handle Tempo transactions separately since they cannot be converted to standard Ethereum
+    // transactions
+    if let FoundryTxEnvelope::Tempo(tempo_tx) = eth_transaction.as_ref() {
+        let from = eth_transaction.recover().unwrap_or_default();
+        let ser = serde_json::to_value(tempo_tx).expect("could not serialize Tempo transaction");
+        let maybe_tempo_fields = OtherFields::try_from(ser);
+
+        match maybe_tempo_fields {
+            Ok(fields) => {
+                let inner = UnknownTypedTransaction {
+                    ty: AnyTxType(TEMPO_TX_TYPE_ID),
+                    fields,
+                    memo: Default::default(),
+                };
+
+                let envelope = AnyTxEnvelope::Unknown(UnknownTxEnvelope {
+                    hash: eth_transaction.hash(),
+                    inner,
+                });
+
+                let tx = Transaction {
+                    inner: Recovered::new_unchecked(envelope, from),
+                    block_hash: block.as_ref().map(|block| block.header.hash_slow()),
+                    block_number: block.as_ref().map(|block| block.header.number),
+                    transaction_index: info.as_ref().map(|info| info.transaction_index),
+                    effective_gas_price: None,
+                };
+
+                return AnyRpcTransaction::from(WithOtherFields::new(tx));
+            }
+            Err(_) => {
+                error!(target: "backend", "failed to serialize tempo transaction");
             }
         }
     }

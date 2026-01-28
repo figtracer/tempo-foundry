@@ -93,11 +93,20 @@ impl IntoTxEnv<OpTransaction<TxEnv>> for FoundryTempoTxEnv {
 /// which is needed for transaction execution in anvil.
 impl FromRecoveredTx<FoundryTxEnvelope> for FoundryTempoTxEnv {
     fn from_recovered_tx(tx: &FoundryTxEnvelope, caller: Address) -> Self {
-        // First convert to OpTransaction<TxEnv>, then extract the base TxEnv
-        let op_tx: OpTransaction<TxEnv> = FromRecoveredTx::from_recovered_tx(tx, caller);
-        Self {
-            inner: TempoTxEnv { inner: op_tx.base, ..Default::default() },
-            enveloped_tx: op_tx.enveloped_tx,
+        match tx {
+            // Handle Tempo transactions natively using TempoTxEnv's FromRecoveredTx impl
+            FoundryTxEnvelope::Tempo(aa_signed) => Self {
+                inner: TempoTxEnv::from_recovered_tx(aa_signed, caller),
+                enveloped_tx: None,
+            },
+            // For all other transaction types, convert through OpTransaction<TxEnv>
+            _ => {
+                let op_tx: OpTransaction<TxEnv> = FromRecoveredTx::from_recovered_tx(tx, caller);
+                Self {
+                    inner: TempoTxEnv { inner: op_tx.base, ..Default::default() },
+                    enveloped_tx: op_tx.enveloped_tx,
+                }
+            }
         }
     }
 }

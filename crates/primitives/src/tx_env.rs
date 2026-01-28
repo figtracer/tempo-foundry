@@ -79,7 +79,11 @@ impl DerefMut for FoundryTempoTxEnv {
 /// Tempo-native EVM types.
 impl IntoTxEnv<OpTransaction<TxEnv>> for FoundryTempoTxEnv {
     fn into_tx_env(self) -> OpTransaction<TxEnv> {
-        OpTransaction { base: self.inner.inner, enveloped_tx: self.enveloped_tx, ..Default::default() }
+        OpTransaction {
+            base: self.inner.inner,
+            enveloped_tx: self.enveloped_tx,
+            ..Default::default()
+        }
     }
 }
 

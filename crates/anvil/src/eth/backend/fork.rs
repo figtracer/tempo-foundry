@@ -1,7 +1,6 @@
 //! Support for forking off another client
 
 use crate::eth::{backend::db::Db, error::BlockchainError, pool::transactions::PoolTransaction};
-use alloy_trie::TrieAccount;
 use alloy_eips::eip2930::AccessListResult;
 use alloy_network::{AnyRpcBlock, AnyRpcTransaction, BlockResponse, TransactionResponse};
 use alloy_primitives::{
@@ -24,6 +23,7 @@ use alloy_rpc_types::{
 };
 use alloy_serde::WithOtherFields;
 use alloy_transport::TransportError;
+use alloy_trie::TrieAccount;
 use foundry_common::provider::{ProviderBuilder, RetryProvider};
 use foundry_primitives::FoundryTxReceipt;
 use parking_lot::{

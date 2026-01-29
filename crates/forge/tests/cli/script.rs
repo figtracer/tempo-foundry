@@ -698,7 +698,7 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 });
 
 forgetest_async!(can_deploy_script_without_lib, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -712,7 +712,7 @@ forgetest_async!(can_deploy_script_without_lib, |prj, cmd| {
 });
 
 forgetest_async!(can_deploy_script_with_lib, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -726,7 +726,7 @@ forgetest_async!(can_deploy_script_with_lib, |prj, cmd| {
 });
 
 forgetest_async!(can_deploy_script_private_key, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -746,7 +746,7 @@ forgetest_async!(
     #[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"]
     can_deploy_unlocked,
     |prj, cmd| {
-        let (_api, handle) = spawn(NodeConfig::test()).await;
+        let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
         let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
         tester
@@ -759,7 +759,7 @@ forgetest_async!(
 );
 
 forgetest_async!(can_deploy_script_remember_key, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -776,7 +776,7 @@ forgetest_async!(can_deploy_script_remember_key, |prj, cmd| {
 });
 
 forgetest_async!(can_deploy_script_remember_key_and_resume, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -800,7 +800,7 @@ forgetest_async!(can_deploy_script_remember_key_and_resume, |prj, cmd| {
 });
 
 forgetest_async!(can_resume_script, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -821,7 +821,7 @@ forgetest_async!(
     #[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"]
     can_deploy_broadcast_wrap,
     |prj, cmd| {
-        let (_api, handle) = spawn(NodeConfig::test()).await;
+        let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
         let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
         tester
@@ -840,7 +840,7 @@ forgetest_async!(
     #[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"]
     panic_no_deployer_set,
     |prj, cmd| {
-        let (_api, handle) = spawn(NodeConfig::test()).await;
+        let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
         let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
         tester
@@ -853,7 +853,7 @@ forgetest_async!(
 );
 
 forgetest_async!(can_deploy_no_arg_broadcast, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -871,7 +871,7 @@ forgetest_async!(
     #[ignore = "tempo skip - create2 duplicate detection behavior differs"]
     can_deploy_with_create2,
     |prj, cmd| {
-        let (api, handle) = spawn(NodeConfig::test()).await;
+        let (api, handle) = spawn(NodeConfig::test_tempo()).await;
         let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
         // Prepare CREATE2 Deployer
@@ -900,7 +900,7 @@ forgetest_async!(
     #[ignore = "tempo skip - create2 with custom deployer behavior differs"]
     can_deploy_with_custom_create2,
     |prj, cmd| {
-        let (api, handle) = spawn(NodeConfig::test()).await;
+        let (api, handle) = spawn(NodeConfig::test_tempo()).await;
         let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
         let create2 = address!("0x0000000000000000000000000000000000b4956c");
 
@@ -930,7 +930,7 @@ forgetest_async!(
     #[ignore = "tempo skip - create2 bytecode matching behavior differs"]
     can_deploy_with_custom_create2_notmatched_bytecode,
     |prj, cmd| {
-        let (api, handle) = spawn(NodeConfig::test()).await;
+        let (api, handle) = spawn(NodeConfig::test_tempo()).await;
         let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
         let create2 = address!("0x0000000000000000000000000000000000b4956c");
 
@@ -957,7 +957,7 @@ forgetest_async!(
     #[ignore = "tempo skip - create2 error detection behavior differs"]
     cannot_deploy_with_nonexist_create2,
     |prj, cmd| {
-        let (_api, handle) = spawn(NodeConfig::test()).await;
+        let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
         let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
         let create2 = address!("0x0000000000000000000000000000000000b4956c");
 
@@ -973,7 +973,7 @@ forgetest_async!(
 );
 
 forgetest_async!(can_deploy_and_simulate_25_txes_concurrently, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -987,7 +987,7 @@ forgetest_async!(can_deploy_and_simulate_25_txes_concurrently, |prj, cmd| {
 });
 
 forgetest_async!(can_deploy_and_simulate_mixed_broadcast_modes, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -1001,7 +1001,7 @@ forgetest_async!(can_deploy_and_simulate_mixed_broadcast_modes, |prj, cmd| {
 });
 
 forgetest_async!(deploy_with_setup, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -1015,7 +1015,7 @@ forgetest_async!(deploy_with_setup, |prj, cmd| {
 });
 
 forgetest_async!(fail_broadcast_staticcall, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -1026,7 +1026,7 @@ forgetest_async!(fail_broadcast_staticcall, |prj, cmd| {
 });
 
 forgetest_async!(check_broadcast_log, |prj, cmd| {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     // Prepare CREATE2 Deployer
@@ -1097,7 +1097,7 @@ forgetest_async!(check_broadcast_log, |prj, cmd| {
 });
 
 forgetest_async!(test_default_sender_balance, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     // Expect the default sender to have uint256.max balance.
@@ -1107,7 +1107,7 @@ forgetest_async!(test_default_sender_balance, |prj, cmd| {
 });
 
 forgetest_async!(test_custom_sender_balance, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     // Expect the sender to have its starting balance.
@@ -1145,7 +1145,7 @@ Warning: Target directory is not empty, but `--force` was specified
 
 "#]]);
 
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let script = prj.add_script(
                 "Counter.s.sol",
                 r#"
@@ -1273,7 +1273,7 @@ Warning: Target directory is not empty, but `--force` was specified
 
 "#]]);
 
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let script = prj.add_script(
         "Counter.s.sol",
         r#"
@@ -1639,7 +1639,7 @@ If you wish to simulate on-chain transactions pass a RPC URL.
 });
 
 forgetest_async!(assert_can_resume_with_additional_contracts, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
     tester
@@ -1805,7 +1805,7 @@ contract SimpleScript is Script {
    "#,
     );
 
-    let node_config = NodeConfig::test().with_base_fee(Some(0));
+    let node_config = NodeConfig::test_tempo().with_base_fee(Some(0));
     let (_api, handle) = spawn(node_config).await;
     let dev = handle.dev_accounts().next().unwrap();
 
@@ -1935,7 +1935,7 @@ contract SimpleScript is Script {
    "#,
     );
 
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
 
     cmd.args([
         "script",
@@ -1969,7 +1969,7 @@ contract SimpleScript is Script {
    "#,
     );
 
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
 
     cmd.args([
         "script",
@@ -1987,7 +1987,7 @@ contract SimpleScript is Script {
     .stdout_eq(str![[r#"
 {"logs":[],"returns":{"success":{"internal_type":"bool","value":"true"}},"success":true,"raw_logs":[],"traces":[["Deployment",{"arena":[{"parent":null,"children":[],"idx":0,"trace":{"depth":0,"success":true,"caller":"0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38","address":"0x5b73c5498c1e3b4dba84de0f1833c4a029d90519","maybe_precompile":false,"selfdestruct_address":null,"selfdestruct_refund_target":null,"selfdestruct_transferred_value":null,"kind":"CREATE","value":"0x0","data":"[..]","output":"[..]","gas_used":"{...}","gas_limit":"{...}","status":"Return","steps":[],"decoded":{"label":"SimpleScript","return_data":null,"call_data":null}},"logs":[],"ordering":[]}]}],["Execution",{"arena":[{"parent":null,"children":[1,2],"idx":0,"trace":{"depth":0,"success":true,"caller":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","address":"0x5b73c5498c1e3b4dba84de0f1833c4a029d90519","maybe_precompile":null,"selfdestruct_address":null,"selfdestruct_refund_target":null,"selfdestruct_transferred_value":null,"kind":"CALL","value":"0x0","data":"0xc0406226","output":"0x0000000000000000000000000000000000000000000000000000000000000001","gas_used":"{...}","gas_limit":1073720760,"status":"Return","steps":[],"decoded":{"label":"SimpleScript","return_data":"true","call_data":{"signature":"run()","args":[]}}},"logs":[],"ordering":[{"Call":0},{"Call":1}]},{"parent":0,"children":[],"idx":1,"trace":{"depth":1,"success":true,"caller":"0x5b73c5498c1e3b4dba84de0f1833c4a029d90519","address":"0x7109709ecfa91a80626ff3989d68f67f5b1dd12d","maybe_precompile":null,"selfdestruct_address":null,"selfdestruct_refund_target":null,"selfdestruct_transferred_value":null,"kind":"CALL","value":"0x0","data":"0x7fb5297f","output":"0x","gas_used":"{...}","gas_limit":1056940999,"status":"Return","steps":[],"decoded":{"label":"VM","return_data":null,"call_data":{"signature":"startBroadcast()","args":[]}}},"logs":[],"ordering":[]},{"parent":0,"children":[],"idx":2,"trace":{"depth":1,"success":true,"caller":"0x5b73c5498c1e3b4dba84de0f1833c4a029d90519","address":"0x0000000000000000000000000000000000000000","maybe_precompile":null,"selfdestruct_address":null,"selfdestruct_refund_target":null,"selfdestruct_transferred_value":null,"kind":"CALL","value":"0x0","data":"0x","output":"0x","gas_used":"{...}","gas_limit":1056940650,"status":"Stop","steps":[],"decoded":{"label":null,"return_data":null,"call_data":null}},"logs":[],"ordering":[]}]}]],"gas_used":"{...}","labeled_addresses":{},"returned":"0x0000000000000000000000000000000000000000000000000000000000000001","address":null}
 {"chain":31337,"estimated_gas_price":"{...}","estimated_total_gas_used":"{...}","estimated_amount_required":"{...}","token_symbol":"[..]"}
-{"chain":"anvil-hardhat","status":"success","tx_hash":"0x4f78afe915fceb282c7625a68eb350bc0bf78acb59ad893e5c62b710a37f3156","contract_address":null,"block_number":1,"gas_used":"{...}","gas_price":"{...}"}
+{"chain":"anvil-hardhat","status":"success","tx_hash":"[..]","contract_address":null,"block_number":1,"gas_used":"{...}","gas_price":"{...}"}
 {"status":"success","transactions":"[..]/broadcast/Foo.sol/31337/run-latest.json","sensitive":"[..]/cache/Foo.sol/31337/run-latest.json"}
 
 "#]].is_jsonlines());
@@ -2010,7 +2010,7 @@ contract SimpleScript is Script {
    "#,
     );
 
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
 
     cmd.args([
         "script",
@@ -2140,7 +2140,7 @@ Script ran successfully.
 
 // Asserts that running the same script twice only deploys library once.
 forgetest_async!(can_deploy_library_create2, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
 
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
@@ -2168,7 +2168,7 @@ forgetest_async!(can_deploy_library_create2, |prj, cmd| {
 // Asserts that running the same script twice only deploys library once when using different
 // senders.
 forgetest_async!(can_deploy_library_create2_different_sender, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
 
     let mut tester = ScriptTester::new_broadcast(cmd, &handle.http_endpoint(), prj.root());
 
@@ -2353,7 +2353,7 @@ Script ran successfully.
 });
 
 forgetest_async!(can_simulate_with_default_sender, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
 
     foundry_test_utils::util::initialize(prj.root());
     prj.add_script(
@@ -2416,7 +2416,7 @@ Simulated On-chain Traces:
 });
 
 forgetest_async!(should_detect_additional_contracts, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
 
     foundry_test_utils::util::initialize(prj.root());
     prj.add_source(
@@ -2501,7 +2501,7 @@ forgetest_async!(should_set_correct_sender_nonce_via_cli, |prj, cmd| {
 });
 
 forgetest_async!(dryrun_without_broadcast, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
 
     foundry_test_utils::util::initialize(prj.root());
     prj.add_source(
@@ -2701,7 +2701,7 @@ Script ran successfully.
 // Tests that script warns if no tx to broadcast.
 // <https://github.com/foundry-rs/foundry/issues/10015>
 forgetest_async!(warns_if_no_transactions_to_broadcast, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     foundry_test_utils::util::initialize(prj.root());
     prj.add_script(
         "NoTxScript.s.sol",
@@ -3081,7 +3081,7 @@ contract FactoryScript is Script {
     );
 
     let deploy_contract = deploy_script.display().to_string() + ":FactoryScript";
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     cmd.args([
         "script",
         &deploy_contract,
@@ -3160,7 +3160,7 @@ contract CounterScript is Script {
         .replace("<url>", &endpoint),
     );
 
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     cmd.args([
         "script",
         &deploy_script.display().to_string(),

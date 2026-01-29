@@ -56,7 +56,7 @@ for attempt in {1..5}; do
   fi
   
   # Kill failed anvil and retry
-  kill $ANVIL_PID 2>/dev/null || true
+  kill "$ANVIL_PID" 2>/dev/null || true
   ANVIL_PID=""
   
   if [[ $attempt -eq 5 ]]; then
@@ -69,7 +69,7 @@ for attempt in {1..5}; do
 done
 
 # Ensure anvil is stopped on script exit
-trap 'kill $ANVIL_PID 2>/dev/null || true' EXIT
+trap 'kill "$ANVIL_PID" 2>/dev/null || true' EXIT
 
 echo -e "\n=== ANVIL FORK: CHECK CLIENT VERSION ==="
 cast client --rpc-url http://127.0.0.1:8546
@@ -114,7 +114,7 @@ cast batch-send --rpc-url http://127.0.0.1:8546 \
   --private-key "$DEV_PK"
 
 # Stop anvil
-kill $ANVIL_PID 2>/dev/null || true
+kill "$ANVIL_PID" 2>/dev/null || true
 trap - EXIT
 
 echo -e "\n=== ANVIL FORK TESTS COMPLETE ==="

@@ -2694,7 +2694,7 @@ Ran 8 tests for src/AssumeNoRevertTest.t.sol:ReverterTest
 });
 
 forgetest_async!(
-    #[ignore = "tempo skip - requires anvil features"]
+    #[ignore = "tempo skip - CREATE2 salt detection prompts for TTY which fails in CI"]
     can_get_broadcast_txs,
     |prj, cmd| {
         foundry_test_utils::util::initialize(prj.root());
@@ -3851,7 +3851,7 @@ Ran 1 test suite [ELAPSED]: 2 tests passed, 0 failed, 0 skipped (2 total tests)
 
 // <https://github.com/foundry-rs/foundry/issues/10544>
 forgetest_init!(
-    #[ignore = "tempo skip - requires anvil features"]
+    #[ignore = "tempo skip - uses native ETH transfer which Tempo does not support"]
     should_not_panic_on_cool,
     |prj, cmd| {
         prj.initialize_default_contracts();

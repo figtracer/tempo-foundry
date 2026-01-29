@@ -3544,17 +3544,8 @@ fn ensure_return_ok(exit: InstructionResult, out: &Option<Output>) -> Result<Byt
     }
 }
 
-/// Tempo AA secp256k1 signature verification gas cost.
-/// This is added to the base transaction gas for Tempo AA transactions.
-const TEMPO_SECP256K1_SIG_GAS: u128 = 160;
-
-/// Determines the minimum gas needed for a transaction depending on the transaction kind.
 fn determine_base_gas_by_kind(request: &WithOtherFields<TransactionRequest>) -> u128 {
-    // Check if this is a Tempo AA transaction (has feeToken in other fields)
-    let is_tempo_tx = request.other.contains_key("feeToken")
-        && request.other.get("feeToken").is_some_and(|v| !v.is_null());
-
-    let base_gas = match request.kind() {
+    match request.kind() {
         Some(TxKind::Call(_)) => {
             MIN_TRANSACTION_GAS
                 + request.inner().authorization_list.as_ref().map_or(0, |auths_list| {
@@ -3564,10 +3555,7 @@ fn determine_base_gas_by_kind(request: &WithOtherFields<TransactionRequest>) -> 
         Some(TxKind::Create) => MIN_CREATE_GAS,
         // Tighten the gas limit upwards if we don't know the tx kind to avoid deployments failing.
         None => MIN_CREATE_GAS,
-    };
-
-    // Add Tempo AA signature verification gas if this is a Tempo transaction
-    if is_tempo_tx { base_gas + TEMPO_SECP256K1_SIG_GAS } else { base_gas }
+    }
 }
 
 /// Keeps result of a call to revm EVM used for gas estimation
@@ -3588,6 +3576,13 @@ impl TryFrom<Result<(InstructionResult, Option<Output>, u128, State)>> for GasEs
         match res {
             // Exceptional case: init used too much gas, treated as out of gas error
             Err(BlockchainError::InvalidTransaction(InvalidTransactionError::GasTooHigh(_))) => {
+                Ok(Self::OutOfGas)
+            }
+            // Tempo intrinsic gas errors come through as Message variants
+            // These should be treated as out-of-gas for binary search purposes
+            Err(BlockchainError::Message(ref msg))
+                if msg.contains("insufficient gas for intrinsic cost") =>
+            {
                 Ok(Self::OutOfGas)
             }
             Err(err) => Err(err),

@@ -1,10 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Use debug binaries from the repo root
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-export PATH="$REPO_ROOT/target/debug:$PATH"
-
 # Get the directory where this script lives
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

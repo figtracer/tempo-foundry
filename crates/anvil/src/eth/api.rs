@@ -3131,9 +3131,15 @@ impl EthApi {
         // configured gas limit
         let mut highest_gas_limit = request.gas.map_or(block_env.gas_limit.into(), |g| g as u128);
 
+        // Check if this is a Tempo AA transaction (pays with fee tokens, not ETH)
+        let is_tempo_tx = request.other.contains_key("feeToken")
+            && request.other.get("feeToken").is_some_and(|v| !v.is_null());
+
         let gas_price = fees.gas_price.unwrap_or_default();
         // If we have non-zero gas price, cap gas limit by sender balance
+        // Skip this check for Tempo transactions which pay with fee tokens, not ETH
         if gas_price > 0
+            && !is_tempo_tx
             && let Some(from) = request.from
         {
             let mut available_funds = self.backend.get_balance_with_state(state, from)?;
@@ -3538,9 +3544,17 @@ fn ensure_return_ok(exit: InstructionResult, out: &Option<Output>) -> Result<Byt
     }
 }
 
+/// Tempo AA secp256k1 signature verification gas cost.
+/// This is added to the base transaction gas for Tempo AA transactions.
+const TEMPO_SECP256K1_SIG_GAS: u128 = 160;
+
 /// Determines the minimum gas needed for a transaction depending on the transaction kind.
 fn determine_base_gas_by_kind(request: &WithOtherFields<TransactionRequest>) -> u128 {
-    match request.kind() {
+    // Check if this is a Tempo AA transaction (has feeToken in other fields)
+    let is_tempo_tx = request.other.contains_key("feeToken")
+        && request.other.get("feeToken").is_some_and(|v| !v.is_null());
+
+    let base_gas = match request.kind() {
         Some(TxKind::Call(_)) => {
             MIN_TRANSACTION_GAS
                 + request.inner().authorization_list.as_ref().map_or(0, |auths_list| {
@@ -3550,7 +3564,10 @@ fn determine_base_gas_by_kind(request: &WithOtherFields<TransactionRequest>) -> 
         Some(TxKind::Create) => MIN_CREATE_GAS,
         // Tighten the gas limit upwards if we don't know the tx kind to avoid deployments failing.
         None => MIN_CREATE_GAS,
-    }
+    };
+
+    // Add Tempo AA signature verification gas if this is a Tempo transaction
+    if is_tempo_tx { base_gas + TEMPO_SECP256K1_SIG_GAS } else { base_gas }
 }
 
 /// Keeps result of a call to revm EVM used for gas estimation

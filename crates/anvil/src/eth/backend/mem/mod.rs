@@ -3920,6 +3920,10 @@ impl TransactionValidator for Backend {
                         return Err(InvalidTransactionError::InsufficientFunds);
                     }
                 }
+                FoundryTxEnvelope::Tempo(_) => {
+                    // Tempo AA transactions pay gas with fee tokens, not ETH
+                    // Fee token balance is validated separately in validate_pool_transaction
+                }
                 _ => {
                     // check sufficient funds: `gas * price + value`
                     let req_funds =

@@ -25,8 +25,8 @@ pub struct EitherTx {
     pub tempo_tx: Option<TempoTxEnv>,
 }
 
-impl IntoTxEnv<EitherTx> for EitherTx {
-    fn into_tx_env(self) -> EitherTx {
+impl IntoTxEnv<Self> for EitherTx {
+    fn into_tx_env(self) -> Self {
         self
     }
 }

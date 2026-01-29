@@ -1,0 +1,1297 @@
+//! Tests for Tempo-specific features in Anvil.
+//!
+//! This module tests Tempo's payment-native protocol features including:
+//! - TIP20 fee tokens (PathUSD, AlphaUSD, BetaUSD, ThetaUSD)
+//! - Tempo transaction types (AA transactions with fee token support)
+//! - 2D nonces (nonce-key for parallelizable transactions)
+//! - Millisecond timestamps
+//! - Account keychain for key authorization
+//! - Tempo precompiles initialization
+//!
+//! ## T1 Hardfork Gas Parameters
+//! - Base fee: 20 gwei
+//! - Transaction gas cap: 30M gas
+//! - State creation operations need 250k+ gas budget
+//! - Expiring nonces: 13,000 gas intrinsic cost
+
+use alloy_eips::eip2718::Encodable2718;
+use alloy_network::{ReceiptResponse, TransactionBuilder};
+use alloy_primitives::{Address, Bytes, TxKind, U256, address};
+use alloy_provider::Provider;
+use alloy_rpc_types::{BlockNumberOrTag, TransactionRequest};
+use alloy_serde::WithOtherFields;
+use alloy_signer::Signer;
+use alloy_signer_local::PrivateKeySigner;
+use alloy_sol_types::sol;
+use anvil::{NodeConfig, spawn};
+use tempo_alloy::primitives::TempoTxEnvelope;
+use tempo_primitives::{
+    AASigned, TempoSignature, TempoTransaction,
+    transaction::{Call, PrimitiveSignature},
+};
+
+// TIP20 token addresses (same as in tempo.rs backend)
+const PATH_USD: Address = address!("20C0000000000000000000000000000000000000");
+const ALPHA_USD: Address = address!("20C0000000000000000000000000000000000001");
+const BETA_USD: Address = address!("20C0000000000000000000000000000000000002");
+const THETA_USD: Address = address!("20C0000000000000000000000000000000000003");
+
+// Precompile addresses
+const NONCE_PRECOMPILE: Address = address!("4e4F4E4345000000000000000000000000000000");
+const ACCOUNT_KEYCHAIN: Address = address!("aAAAaaAA00000000000000000000000000000000");
+
+// T1 hardfork gas constants
+const TIP20_TRANSFER_GAS: u64 = 300_000;
+const TIP20_APPROVE_GAS: u64 = 100_000;
+
+sol! {
+    #[sol(rpc)]
+    interface IERC20 {
+        function name() external view returns (string memory);
+        function symbol() external view returns (string memory);
+        function decimals() external view returns (uint8);
+        function totalSupply() external view returns (uint256);
+        function balanceOf(address account) external view returns (uint256);
+        function transfer(address to, uint256 amount) external returns (bool);
+        function allowance(address owner, address spender) external view returns (uint256);
+        function approve(address spender, uint256 amount) external returns (bool);
+        function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    }
+}
+
+// ============================================================================
+// Tempo Mode Initialization Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tempo_mode_enabled_by_default() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let block_number = provider.get_block_number().await.unwrap();
+    assert_eq!(block_number, 0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tempo_precompiles_have_code() {
+    let (api, _handle) = spawn(NodeConfig::test()).await;
+
+    // Tempo precompiles should have sentinel bytecode (0xef)
+    let nonce_code = api.get_code(NONCE_PRECOMPILE, None).await.unwrap();
+    assert!(!nonce_code.is_empty(), "Nonce precompile should have code");
+
+    let keychain_code = api.get_code(ACCOUNT_KEYCHAIN, None).await.unwrap();
+    assert!(!keychain_code.is_empty(), "Account keychain should have code");
+}
+
+// ============================================================================
+// TIP20 Fee Token Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fee_tokens_deployed() {
+    let (api, _handle) = spawn(NodeConfig::test()).await;
+
+    for token in [PATH_USD, ALPHA_USD, BETA_USD, THETA_USD] {
+        let code = api.get_code(token, None).await.unwrap();
+        assert!(!code.is_empty(), "Token {token} should have code deployed");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fee_token_balances_minted_to_test_accounts() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let dev_accounts: Vec<Address> = handle.dev_accounts().collect();
+    assert!(!dev_accounts.is_empty(), "Should have dev accounts");
+
+    // Each dev account should have fee tokens minted
+    for account in dev_accounts.iter().take(3) {
+        for token in [PATH_USD, ALPHA_USD, BETA_USD, THETA_USD] {
+            let token_contract = IERC20::new(token, &provider);
+            let balance = token_contract.balanceOf(*account).call().await.unwrap();
+            assert!(
+                balance > U256::ZERO,
+                "Account {account} should have {token} balance, got {balance}"
+            );
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tip20_token_metadata() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    // Test PathUSD metadata
+    let path_usd = IERC20::new(PATH_USD, &provider);
+    let name = path_usd.name().call().await.unwrap();
+    let symbol = path_usd.symbol().call().await.unwrap();
+    let decimals = path_usd.decimals().call().await.unwrap();
+
+    assert_eq!(name, "PathUSD");
+    assert_eq!(symbol, "PathUSD");
+    assert_eq!(decimals, 6); // TIP20 tokens use 6 decimals
+
+    // Test AlphaUSD metadata
+    let alpha_usd = IERC20::new(ALPHA_USD, &provider);
+    let name = alpha_usd.name().call().await.unwrap();
+    assert_eq!(name, "AlphaUSD");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tip20_transfer() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let sender = accounts[0];
+    let recipient = accounts[1];
+
+    // Use PATH_USD for transfer testing (not the default fee token ALPHA_USD)
+    // This way balance changes are only from the transfer, not gas fees
+    let token = IERC20::new(PATH_USD, &provider);
+
+    // Get initial balances
+    let sender_balance_before = token.balanceOf(sender).call().await.unwrap();
+    let recipient_balance_before = token.balanceOf(recipient).call().await.unwrap();
+
+    // Transfer tokens with explicit gas limit for precompile interaction
+    let transfer_amount = U256::from(1_000_000); // 1 token (6 decimals)
+    let transfer_call = token.transfer(recipient, transfer_amount);
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tx = TransactionRequest::default()
+        .from(sender)
+        .to(PATH_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_TRANSFER_GAS);
+
+    let tx = WithOtherFields::new(tx);
+    let pending = provider.send_transaction(tx).await.unwrap();
+    let receipt = pending.get_receipt().await.unwrap();
+    assert!(receipt.status());
+
+    // Verify balances changed
+    let sender_balance_after = token.balanceOf(sender).call().await.unwrap();
+    let recipient_balance_after = token.balanceOf(recipient).call().await.unwrap();
+
+    assert_eq!(
+        sender_balance_before - transfer_amount,
+        sender_balance_after,
+        "Sender balance should decrease by transfer amount"
+    );
+    assert_eq!(
+        recipient_balance_before + transfer_amount,
+        recipient_balance_after,
+        "Recipient balance should increase by transfer amount"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tip20_approve_and_transfer_from() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let owner = accounts[0];
+    let spender = accounts[1];
+    let recipient = accounts[2];
+
+    let token = IERC20::new(BETA_USD, &provider);
+
+    // Owner approves spender
+    let approve_amount = U256::from(5_000_000);
+    let approve_call = token.approve(spender, approve_amount);
+    let calldata: Bytes = approve_call.calldata().clone();
+
+    let tx = TransactionRequest::default()
+        .from(owner)
+        .to(BETA_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_APPROVE_GAS);
+
+    let tx = WithOtherFields::new(tx);
+    provider.send_transaction(tx).await.unwrap().get_receipt().await.unwrap();
+
+    // Check allowance
+    let allowance = token.allowance(owner, spender).call().await.unwrap();
+    assert_eq!(allowance, approve_amount);
+
+    // Spender transfers from owner to recipient
+    let transfer_amount = U256::from(2_000_000);
+    let transfer_from_call = token.transferFrom(owner, recipient, transfer_amount);
+    let calldata: Bytes = transfer_from_call.calldata().clone();
+
+    let recipient_balance_before = token.balanceOf(recipient).call().await.unwrap();
+
+    let tx = TransactionRequest::default()
+        .from(spender)
+        .to(BETA_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_TRANSFER_GAS);
+
+    let tx = WithOtherFields::new(tx);
+    let receipt = provider.send_transaction(tx).await.unwrap().get_receipt().await.unwrap();
+    assert!(receipt.status());
+
+    // Verify recipient received tokens
+    let recipient_balance_after = token.balanceOf(recipient).call().await.unwrap();
+    assert_eq!(recipient_balance_before + transfer_amount, recipient_balance_after);
+
+    // Verify allowance decreased
+    let allowance_after = token.allowance(owner, spender).call().await.unwrap();
+    assert_eq!(allowance_after, approve_amount - transfer_amount);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tip20_total_supply() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let token = IERC20::new(PATH_USD, &provider);
+    let total_supply = token.totalSupply().call().await.unwrap();
+
+    // Total supply should be non-zero (tokens minted at genesis)
+    assert!(total_supply > U256::ZERO, "Total supply should be non-zero");
+}
+
+// ============================================================================
+// Block and Timestamp Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_block_has_timestamp() {
+    let (api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    api.mine_one().await;
+
+    let block = provider.get_block(1.into()).await.unwrap().unwrap();
+    assert!(block.header.timestamp > 0, "Block should have a timestamp");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_block_timestamp_increases() {
+    let (api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    api.mine_one().await;
+    let block1 = provider.get_block(1.into()).await.unwrap().unwrap();
+
+    let future_timestamp = block1.header.timestamp + 100;
+    api.evm_set_next_block_timestamp(future_timestamp).unwrap();
+
+    api.mine_one().await;
+    let block2 = provider.get_block(2.into()).await.unwrap().unwrap();
+
+    assert_eq!(block2.header.timestamp, future_timestamp);
+    assert!(block2.header.timestamp > block1.header.timestamp);
+}
+
+// ============================================================================
+// Transaction Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_native_eth_transfer_rejected_in_tempo_mode() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let from = accounts[0];
+    let to = accounts[1];
+
+    let transfer_amount = U256::from(1_000_000_000_000_000_000u64); // 1 ETH
+
+    let tx = TransactionRequest::default().from(from).to(to).value(transfer_amount);
+
+    let tx = WithOtherFields::new(tx);
+
+    // Tempo mode doesn't allow native ETH transfers - use TIP20 fee tokens instead
+    let result = provider.send_transaction(tx).await;
+    assert!(result.is_err(), "Native ETH transfers should be rejected in Tempo mode");
+
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("native value transfer not allowed"),
+        "Expected 'native value transfer not allowed' error, got: {err}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_nonce_increments() {
+    crate::init_tracing();
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let from = accounts[0];
+    let to = accounts[1];
+
+    let nonce_before = provider.get_transaction_count(from).await.unwrap();
+    assert_eq!(nonce_before, 0);
+
+    // Use TIP20 transfer instead of native ETH transfer (not allowed in Tempo mode)
+    let token = IERC20::new(ALPHA_USD, &provider);
+    let transfer_call = token.transfer(to, U256::from(1000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tx = TransactionRequest::default()
+        .from(from)
+        .to(ALPHA_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_TRANSFER_GAS);
+
+    let tx = WithOtherFields::new(tx);
+    let pending = provider.send_transaction(tx).await.unwrap();
+    pending.get_receipt().await.unwrap();
+
+    let nonce_after = provider.get_transaction_count(from).await.unwrap();
+    assert_eq!(nonce_after, 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_multiple_transactions_in_block() {
+    let (api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    api.anvil_set_auto_mine(false).await.unwrap();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+
+    // Use TIP20 transfers instead of native ETH (not allowed in Tempo mode)
+    let token = IERC20::new(ALPHA_USD, &provider);
+
+    let transfer1 = token.transfer(accounts[1], U256::from(1000));
+    let calldata1: Bytes = transfer1.calldata().clone();
+    let tx1 = TransactionRequest::default()
+        .from(accounts[0])
+        .to(ALPHA_USD)
+        .with_input(calldata1)
+        .with_gas_limit(TIP20_TRANSFER_GAS);
+
+    let transfer2 = token.transfer(accounts[3], U256::from(2000));
+    let calldata2: Bytes = transfer2.calldata().clone();
+    let tx2 = TransactionRequest::default()
+        .from(accounts[2])
+        .to(ALPHA_USD)
+        .with_input(calldata2)
+        .with_gas_limit(TIP20_TRANSFER_GAS);
+
+    let tx1 = WithOtherFields::new(tx1);
+    let tx2 = WithOtherFields::new(tx2);
+
+    let pending1 = provider.send_transaction(tx1).await.unwrap();
+    let pending2 = provider.send_transaction(tx2).await.unwrap();
+
+    api.mine_one().await;
+
+    let receipt1 = pending1.get_receipt().await.unwrap();
+    let receipt2 = pending2.get_receipt().await.unwrap();
+
+    assert_eq!(receipt1.block_number, receipt2.block_number);
+}
+
+// ============================================================================
+// Gas Estimation Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_estimation() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+
+    // Use TIP20 transfer for gas estimation (native ETH not allowed in Tempo)
+    let token = IERC20::new(ALPHA_USD, &provider);
+    let transfer_call = token.transfer(accounts[1], U256::from(1000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tx = TransactionRequest::default().from(accounts[0]).to(ALPHA_USD).with_input(calldata);
+
+    let gas_estimate = provider.estimate_gas(tx.into()).await.unwrap();
+
+    // TIP20 transfer should use more than 21000 gas
+    assert!(gas_estimate > 21000, "TIP20 transfer should use more than 21000 gas");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_estimation_for_contract_call() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+
+    // Estimate gas for TIP20 transfer
+    let token = IERC20::new(ALPHA_USD, &provider);
+    let transfer_call = token.transfer(accounts[1], U256::from(1000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tx = TransactionRequest::default().from(accounts[0]).to(ALPHA_USD).with_input(calldata);
+
+    let gas_estimate = provider.estimate_gas(tx.into()).await.unwrap();
+
+    // Contract call should use more gas than simple transfer
+    assert!(gas_estimate > 21000, "Contract call should use more than 21000 gas");
+}
+
+// ============================================================================
+// Chain ID Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_chain_id() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let chain_id = provider.get_chain_id().await.unwrap();
+    assert_eq!(chain_id, 31337);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_custom_chain_id() {
+    let custom_chain_id = 42069u64;
+    let (_api, handle) = spawn(NodeConfig::test().with_chain_id(Some(custom_chain_id))).await;
+    let provider = handle.http_provider();
+
+    let chain_id = provider.get_chain_id().await.unwrap();
+    assert_eq!(chain_id, custom_chain_id);
+}
+
+// ============================================================================
+// Account State Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_dev_accounts_have_balance() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let genesis_balance = handle.genesis_balance();
+
+    for account in handle.dev_accounts() {
+        let balance = provider.get_balance(account).await.unwrap();
+        assert_eq!(balance, genesis_balance, "Dev account {account} should have genesis balance");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_anvil_set_balance() {
+    let (api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let random_address = Address::random();
+    let new_balance = U256::from(1_000_000_000_000_000_000u64);
+
+    let balance_before = provider.get_balance(random_address).await.unwrap();
+    assert_eq!(balance_before, U256::ZERO);
+
+    api.anvil_set_balance(random_address, new_balance).await.unwrap();
+
+    let balance_after = provider.get_balance(random_address).await.unwrap();
+    assert_eq!(balance_after, new_balance);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_anvil_set_code() {
+    let (api, _handle) = spawn(NodeConfig::test()).await;
+
+    let target = Address::random();
+
+    let code_before = api.get_code(target, None).await.unwrap();
+    assert!(code_before.is_empty());
+
+    let bytecode = vec![0x60, 0x00, 0x60, 0x00, 0xf3]; // PUSH 0, PUSH 0, RETURN
+    api.anvil_set_code(target, bytecode.clone().into()).await.unwrap();
+
+    let code_after = api.get_code(target, None).await.unwrap();
+    assert_eq!(code_after.as_ref(), bytecode.as_slice());
+}
+
+// ============================================================================
+// Mining Control Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_auto_mine_toggle() {
+    let (api, _handle) = spawn(NodeConfig::test()).await;
+
+    assert!(api.anvil_get_auto_mine().unwrap());
+
+    api.anvil_set_auto_mine(false).await.unwrap();
+    assert!(!api.anvil_get_auto_mine().unwrap());
+
+    api.anvil_set_auto_mine(true).await.unwrap();
+    assert!(api.anvil_get_auto_mine().unwrap());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_manual_mining() {
+    let (api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let block_before = provider.get_block_number().await.unwrap();
+
+    api.mine_one().await;
+
+    let block_after = provider.get_block_number().await.unwrap();
+    assert_eq!(block_after, block_before + 1);
+
+    api.anvil_mine(Some(U256::from(5)), None).await.unwrap();
+
+    let block_final = provider.get_block_number().await.unwrap();
+    assert_eq!(block_final, block_after + 5);
+}
+
+// ============================================================================
+// Impersonation Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_impersonate_account() {
+    let (api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let impersonated = handle.dev_accounts().next().unwrap();
+    let recipient = handle.dev_accounts().nth(1).unwrap();
+
+    api.anvil_impersonate_account(impersonated).await.unwrap();
+
+    // Use TIP20 transfer (native ETH not allowed in Tempo mode)
+    let token = IERC20::new(ALPHA_USD, &provider);
+    let transfer_call = token.transfer(recipient, U256::from(1000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tx = TransactionRequest::default()
+        .from(impersonated)
+        .to(ALPHA_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_TRANSFER_GAS);
+
+    let tx = WithOtherFields::new(tx);
+    let receipt = provider.send_transaction(tx).await.unwrap().get_receipt().await.unwrap();
+
+    assert!(receipt.status());
+
+    api.anvil_stop_impersonating_account(impersonated).await.unwrap();
+}
+
+// ============================================================================
+// Snapshot and Revert Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_snapshot_and_revert() {
+    let (api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let from = accounts[0];
+    let to = accounts[1];
+
+    let token = IERC20::new(ALPHA_USD, &provider);
+    let balance_before = token.balanceOf(to).call().await.unwrap();
+    let block_before = provider.get_block_number().await.unwrap();
+
+    let snapshot_id = api.evm_snapshot().await.unwrap();
+
+    // Use TIP20 transfer (native ETH not allowed in Tempo mode)
+    let transfer_call = token.transfer(to, U256::from(1_000_000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tx = TransactionRequest::default()
+        .from(from)
+        .to(ALPHA_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_TRANSFER_GAS);
+
+    let tx = WithOtherFields::new(tx);
+    provider.send_transaction(tx).await.unwrap().get_receipt().await.unwrap();
+
+    let balance_after_tx = token.balanceOf(to).call().await.unwrap();
+    assert!(balance_after_tx > balance_before);
+
+    api.evm_revert(snapshot_id).await.unwrap();
+
+    let balance_reverted = token.balanceOf(to).call().await.unwrap();
+    let block_reverted = provider.get_block_number().await.unwrap();
+
+    assert_eq!(balance_reverted, balance_before);
+    assert_eq!(block_reverted, block_before);
+}
+
+// ============================================================================
+// Event/Log Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_transfer_emits_event() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let from = accounts[0];
+    let to = accounts[1];
+
+    let token = IERC20::new(ALPHA_USD, &provider);
+    let transfer_amount = U256::from(1_000_000);
+    let transfer_call = token.transfer(to, transfer_amount);
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tx = TransactionRequest::default()
+        .from(from)
+        .to(ALPHA_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_TRANSFER_GAS);
+
+    let tx = WithOtherFields::new(tx);
+    let receipt = provider.send_transaction(tx).await.unwrap().get_receipt().await.unwrap();
+
+    assert!(!receipt.inner.logs().is_empty(), "Transfer should emit event");
+
+    let log = &receipt.inner.logs()[0];
+    assert_eq!(log.address(), ALPHA_USD);
+
+    let transfer_topic =
+        alloy_primitives::keccak256("Transfer(address,address,uint256)".as_bytes());
+    assert_eq!(log.topics()[0], transfer_topic);
+}
+
+// ============================================================================
+// Block Gas Limit Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_block_gas_limit() {
+    let (api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    api.mine_one().await;
+
+    let block = provider.get_block(BlockNumberOrTag::Latest.into()).await.unwrap().unwrap();
+
+    assert!(block.header.gas_limit > 0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_transaction_respects_gas_limit() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+
+    // Use TIP20 transfer (native ETH not allowed in Tempo mode)
+    let token = IERC20::new(ALPHA_USD, &provider);
+    let transfer_call = token.transfer(accounts[1], U256::from(1000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tx = TransactionRequest::default()
+        .from(accounts[0])
+        .to(ALPHA_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_TRANSFER_GAS);
+
+    let tx = WithOtherFields::new(tx);
+    let receipt = provider.send_transaction(tx).await.unwrap().get_receipt().await.unwrap();
+
+    assert!(receipt.status());
+    assert!(receipt.gas_used <= TIP20_TRANSFER_GAS);
+}
+
+// ============================================================================
+// Tempo-specific: Multiple Fee Token Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_all_fee_tokens_have_correct_metadata() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let tokens = [
+        (PATH_USD, "PathUSD"),
+        (ALPHA_USD, "AlphaUSD"),
+        (BETA_USD, "BetaUSD"),
+        (THETA_USD, "ThetaUSD"),
+    ];
+
+    for (addr, expected_name) in tokens {
+        let token = IERC20::new(addr, &provider);
+        let name = token.name().call().await.unwrap();
+        let decimals = token.decimals().call().await.unwrap();
+
+        assert_eq!(name, expected_name, "Token at {addr} should be named {expected_name}");
+        assert_eq!(decimals, 6, "All TIP20 tokens use 6 decimals");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_transfer_between_different_fee_tokens() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let sender = accounts[0];
+    let recipient = accounts[1];
+
+    // Transfer from different fee tokens in sequence
+    for token_addr in [PATH_USD, ALPHA_USD, BETA_USD, THETA_USD] {
+        let token = IERC20::new(token_addr, &provider);
+        let balance_before = token.balanceOf(recipient).call().await.unwrap();
+
+        let transfer_amount = U256::from(100_000);
+        let transfer_call = token.transfer(recipient, transfer_amount);
+        let calldata: Bytes = transfer_call.calldata().clone();
+
+        let tx = TransactionRequest::default()
+            .from(sender)
+            .to(token_addr)
+            .with_input(calldata)
+            .with_gas_limit(TIP20_TRANSFER_GAS);
+
+        let tx = WithOtherFields::new(tx);
+        let receipt = provider.send_transaction(tx).await.unwrap().get_receipt().await.unwrap();
+        assert!(receipt.status(), "Transfer for {token_addr} failed");
+
+        let balance_after = token.balanceOf(recipient).call().await.unwrap();
+        assert_eq!(balance_after, balance_before + transfer_amount);
+    }
+}
+
+// ============================================================================
+// Tempo-specific: Gas Price Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_price() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let gas_price = provider.get_gas_price().await.unwrap();
+
+    // Gas price should be non-zero
+    assert!(gas_price > 0, "Gas price should be non-zero");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_base_fee() {
+    let (api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    api.mine_one().await;
+
+    let block = provider.get_block(BlockNumberOrTag::Latest.into()).await.unwrap().unwrap();
+
+    // Block should have base fee (EIP-1559)
+    assert!(block.header.base_fee_per_gas.is_some());
+}
+
+// ============================================================================
+// EIP-1559 Transaction Tests
+// ============================================================================
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eip1559_transaction() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let sender = accounts[0];
+    let recipient = accounts[1];
+
+    // Use PATH_USD for transfer (not the default fee token)
+    let token = IERC20::new(PATH_USD, &provider);
+    let recipient_balance_before = token.balanceOf(recipient).call().await.unwrap();
+
+    // Create an EIP-1559 transaction with explicit gas parameters
+    let transfer_amount = U256::from(500_000); // 0.5 token
+    let transfer_call = token.transfer(recipient, transfer_amount);
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    // Get current base fee
+    let base_fee = provider.get_gas_price().await.unwrap();
+
+    let tx = TransactionRequest::default()
+        .from(sender)
+        .to(PATH_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_TRANSFER_GAS)
+        .max_fee_per_gas(base_fee * 2) // 2x base fee for priority
+        .max_priority_fee_per_gas(base_fee / 10); // 10% priority fee
+
+    let tx = WithOtherFields::new(tx);
+    let pending = provider.send_transaction(tx).await.unwrap();
+    let receipt = pending.get_receipt().await.unwrap();
+
+    assert!(receipt.status(), "EIP-1559 transaction should succeed");
+
+    // Verify recipient received tokens
+    let recipient_balance_after = token.balanceOf(recipient).call().await.unwrap();
+    assert_eq!(
+        recipient_balance_after,
+        recipient_balance_before + transfer_amount,
+        "Recipient should receive transfer amount"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eip1559_fee_token_deduction() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let sender = accounts[0];
+    let recipient = accounts[1];
+
+    // Check fee token balance (ALPHA_USD is Alice's default fee token)
+    let fee_token = IERC20::new(ALPHA_USD, &provider);
+    let fee_balance_before = fee_token.balanceOf(sender).call().await.unwrap();
+
+    // Use PATH_USD for transfer
+    let token = IERC20::new(PATH_USD, &provider);
+    let transfer_call = token.transfer(recipient, U256::from(100_000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let base_fee = provider.get_gas_price().await.unwrap();
+
+    let tx = TransactionRequest::default()
+        .from(sender)
+        .to(PATH_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_TRANSFER_GAS)
+        .max_fee_per_gas(base_fee * 2)
+        .max_priority_fee_per_gas(base_fee / 10);
+
+    let tx = WithOtherFields::new(tx);
+    let pending = provider.send_transaction(tx).await.unwrap();
+    let receipt = pending.get_receipt().await.unwrap();
+
+    assert!(receipt.status(), "Transaction should succeed");
+
+    // Fee token balance should have decreased (gas fees paid in ALPHA_USD)
+    let fee_balance_after = fee_token.balanceOf(sender).call().await.unwrap();
+    assert!(
+        fee_balance_after < fee_balance_before,
+        "Fee token balance should decrease after paying gas (before: {fee_balance_before}, after: {fee_balance_after})"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_legacy_transaction() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let sender = accounts[0];
+    let recipient = accounts[1];
+
+    // Use PATH_USD for transfer (not the default fee token)
+    let token = IERC20::new(PATH_USD, &provider);
+    let recipient_balance_before = token.balanceOf(recipient).call().await.unwrap();
+
+    // Create a legacy transaction (no EIP-1559 fields)
+    let transfer_amount = U256::from(250_000); // 0.25 token
+    let transfer_call = token.transfer(recipient, transfer_amount);
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    // Get current gas price for legacy tx
+    let gas_price = provider.get_gas_price().await.unwrap();
+
+    let tx = TransactionRequest::default()
+        .from(sender)
+        .to(PATH_USD)
+        .with_input(calldata)
+        .with_gas_limit(TIP20_TRANSFER_GAS)
+        .with_gas_price(gas_price);
+
+    let tx = WithOtherFields::new(tx);
+    let pending = provider.send_transaction(tx).await.unwrap();
+    let receipt = pending.get_receipt().await.unwrap();
+
+    assert!(receipt.status(), "Legacy transaction should succeed");
+
+    // Verify recipient received tokens
+    let recipient_balance_after = token.balanceOf(recipient).call().await.unwrap();
+    assert_eq!(
+        recipient_balance_after,
+        recipient_balance_before + transfer_amount,
+        "Recipient should receive transfer amount"
+    );
+}
+
+// ============================================================================
+// Tempo AA Transaction Tests (Type 0x76)
+// ============================================================================
+
+/// Helper to get the private key for a dev account
+fn dev_key(index: u32) -> PrivateKeySigner {
+    let mnemonic = "test test test test test test test test test test test junk";
+    alloy_signer_local::MnemonicBuilder::<alloy_signer_local::coins_bip39::English>::default()
+        .phrase(mnemonic)
+        .index(index)
+        .expect("valid mnemonic")
+        .build()
+        .expect("valid key")
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tempo_aa_transaction_basic() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let recipient = accounts[1];
+    let signer = dev_key(0);
+
+    // Get initial PATH_USD balances
+    let token = IERC20::new(PATH_USD, &provider);
+    let recipient_balance_before = token.balanceOf(recipient).call().await.unwrap();
+
+    // Build a Tempo AA transaction (type 0x76)
+    let transfer_amount = U256::from(100_000);
+    let transfer_call = token.transfer(recipient, transfer_amount);
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let chain_id = provider.get_chain_id().await.unwrap();
+    let base_fee = provider.get_gas_price().await.unwrap();
+
+    // Create the Tempo transaction
+    let tempo_tx = TempoTransaction {
+        chain_id,
+        fee_token: Some(ALPHA_USD), // Use AlphaUSD for gas fees
+        max_priority_fee_per_gas: base_fee / 10,
+        max_fee_per_gas: base_fee * 2,
+        gas_limit: TIP20_TRANSFER_GAS,
+        calls: vec![Call { to: TxKind::Call(PATH_USD), value: U256::ZERO, input: calldata }],
+        access_list: Default::default(),
+        nonce_key: U256::ZERO, // Protocol nonce lane
+        nonce: 0,              // First transaction on nonce key 0
+        fee_payer_signature: None,
+        valid_before: None,
+        valid_after: None,
+        key_authorization: None,
+        tempo_authorization_list: vec![],
+    };
+
+    // Sign the transaction
+    let sig_hash = tempo_tx.signature_hash();
+    let signature = signer.sign_hash(&sig_hash).await.unwrap();
+    let tempo_sig = TempoSignature::Primitive(PrimitiveSignature::Secp256k1(signature));
+    let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
+    let envelope = TempoTxEnvelope::AA(signed_tx);
+
+    // Encode and send the raw transaction
+    let mut encoded = Vec::new();
+    envelope.encode_2718(&mut encoded);
+    let tx_hash = provider.send_raw_transaction(&encoded).await.unwrap();
+    let receipt = tx_hash.get_receipt().await.unwrap();
+
+    assert!(receipt.status(), "Tempo AA transaction should succeed");
+
+    // Verify recipient received tokens
+    let recipient_balance_after = token.balanceOf(recipient).call().await.unwrap();
+    assert_eq!(
+        recipient_balance_after,
+        recipient_balance_before + transfer_amount,
+        "Recipient should receive transfer amount"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tempo_aa_transaction_with_2d_nonce() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let recipient = accounts[1];
+    let signer = dev_key(0);
+
+    let token = IERC20::new(PATH_USD, &provider);
+    let chain_id = provider.get_chain_id().await.unwrap();
+    let base_fee = provider.get_gas_price().await.unwrap();
+
+    // Send two transactions with different nonce keys (can be parallelized)
+    let nonce_keys = [U256::from(1), U256::from(2)]; // User nonce lanes
+
+    for (i, nonce_key) in nonce_keys.iter().enumerate() {
+        let transfer_amount = U256::from(50_000 * (i + 1) as u64);
+        let transfer_call = token.transfer(recipient, transfer_amount);
+        let calldata: Bytes = transfer_call.calldata().clone();
+
+        let tempo_tx = TempoTransaction {
+            chain_id,
+            fee_token: Some(ALPHA_USD),
+            max_priority_fee_per_gas: base_fee / 10,
+            max_fee_per_gas: base_fee * 2,
+            gas_limit: TIP20_TRANSFER_GAS,
+            calls: vec![Call { to: TxKind::Call(PATH_USD), value: U256::ZERO, input: calldata }],
+            access_list: Default::default(),
+            nonce_key: *nonce_key,
+            nonce: 0, // First transaction on this nonce key
+            fee_payer_signature: None,
+            valid_before: None,
+            valid_after: None,
+            key_authorization: None,
+            tempo_authorization_list: vec![],
+        };
+
+        let sig_hash = tempo_tx.signature_hash();
+        let signature = signer.sign_hash(&sig_hash).await.unwrap();
+        let tempo_sig = TempoSignature::Primitive(PrimitiveSignature::Secp256k1(signature));
+        let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
+        let envelope = TempoTxEnvelope::AA(signed_tx);
+
+        let mut encoded = Vec::new();
+        envelope.encode_2718(&mut encoded);
+        let tx_hash = provider.send_raw_transaction(&encoded).await.unwrap();
+        let receipt = tx_hash.get_receipt().await.unwrap();
+
+        assert!(receipt.status(), "Tempo AA transaction with nonce_key {nonce_key} should succeed");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tempo_aa_transaction_with_valid_before() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let recipient = accounts[1];
+    let signer = dev_key(0);
+
+    let token = IERC20::new(PATH_USD, &provider);
+    let chain_id = provider.get_chain_id().await.unwrap();
+    let base_fee = provider.get_gas_price().await.unwrap();
+
+    // Get current block timestamp
+    let block = provider.get_block(BlockNumberOrTag::Latest.into()).await.unwrap().unwrap();
+    let current_time = block.header.timestamp;
+
+    // Create a transaction with valid_before set to 30 seconds in the future
+    let valid_before = current_time + 30;
+
+    let transfer_amount = U256::from(75_000);
+    let transfer_call = token.transfer(recipient, transfer_amount);
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tempo_tx = TempoTransaction {
+        chain_id,
+        fee_token: Some(ALPHA_USD),
+        max_priority_fee_per_gas: base_fee / 10,
+        max_fee_per_gas: base_fee * 2,
+        gas_limit: TIP20_TRANSFER_GAS,
+        calls: vec![Call { to: TxKind::Call(PATH_USD), value: U256::ZERO, input: calldata }],
+        access_list: Default::default(),
+        nonce_key: U256::from(3), // Use a unique nonce key
+        nonce: 0,
+        fee_payer_signature: None,
+        valid_before: Some(valid_before),
+        valid_after: None,
+        key_authorization: None,
+        tempo_authorization_list: vec![],
+    };
+
+    let sig_hash = tempo_tx.signature_hash();
+    let signature = signer.sign_hash(&sig_hash).await.unwrap();
+    let tempo_sig = TempoSignature::Primitive(PrimitiveSignature::Secp256k1(signature));
+    let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
+    let envelope = TempoTxEnvelope::AA(signed_tx);
+
+    let mut encoded = Vec::new();
+    envelope.encode_2718(&mut encoded);
+    let tx_hash = provider.send_raw_transaction(&encoded).await.unwrap();
+    let receipt = tx_hash.get_receipt().await.unwrap();
+
+    assert!(receipt.status(), "Tempo AA transaction with valid_before should succeed");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tempo_aa_transaction_with_valid_after() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let recipient = accounts[1];
+    let signer = dev_key(0);
+
+    let token = IERC20::new(PATH_USD, &provider);
+    let chain_id = provider.get_chain_id().await.unwrap();
+    let base_fee = provider.get_gas_price().await.unwrap();
+
+    // Get current block timestamp
+    let block = provider.get_block(BlockNumberOrTag::Latest.into()).await.unwrap().unwrap();
+    let current_time = block.header.timestamp;
+
+    // Create a transaction with valid_after set to current time (already valid)
+    // and valid_before set to 30 seconds in the future
+    let valid_after = current_time; // Already valid
+    let valid_before = current_time + 30;
+
+    let transfer_amount = U256::from(60_000);
+    let transfer_call = token.transfer(recipient, transfer_amount);
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tempo_tx = TempoTransaction {
+        chain_id,
+        fee_token: Some(ALPHA_USD),
+        max_priority_fee_per_gas: base_fee / 10,
+        max_fee_per_gas: base_fee * 2,
+        gas_limit: TIP20_TRANSFER_GAS,
+        calls: vec![Call { to: TxKind::Call(PATH_USD), value: U256::ZERO, input: calldata }],
+        access_list: Default::default(),
+        nonce_key: U256::from(4), // Use a unique nonce key
+        nonce: 0,
+        fee_payer_signature: None,
+        valid_before: Some(valid_before),
+        valid_after: Some(valid_after),
+        key_authorization: None,
+        tempo_authorization_list: vec![],
+    };
+
+    let sig_hash = tempo_tx.signature_hash();
+    let signature = signer.sign_hash(&sig_hash).await.unwrap();
+    let tempo_sig = TempoSignature::Primitive(PrimitiveSignature::Secp256k1(signature));
+    let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
+    let envelope = TempoTxEnvelope::AA(signed_tx);
+
+    let mut encoded = Vec::new();
+    envelope.encode_2718(&mut encoded);
+    let tx_hash = provider.send_raw_transaction(&encoded).await.unwrap();
+    let receipt = tx_hash.get_receipt().await.unwrap();
+
+    assert!(
+        receipt.status(),
+        "Tempo AA transaction with valid_after (already valid) should succeed"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tempo_aa_transaction_expiring_nonce() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let recipient = accounts[1];
+    let signer = dev_key(0);
+
+    let token = IERC20::new(PATH_USD, &provider);
+    let chain_id = provider.get_chain_id().await.unwrap();
+    let base_fee = provider.get_gas_price().await.unwrap();
+
+    // Get current block timestamp
+    let block = provider.get_block(BlockNumberOrTag::Latest.into()).await.unwrap().unwrap();
+    let current_time = block.header.timestamp;
+
+    // Expiring nonce uses nonce_key = U256::MAX and nonce = 0
+    // The transaction hash provides replay protection instead of sequential nonces
+    let valid_before = current_time + 25; // Must be within 30 seconds max expiry window
+
+    let transfer_amount = U256::from(80_000);
+    let transfer_call = token.transfer(recipient, transfer_amount);
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    let tempo_tx = TempoTransaction {
+        chain_id,
+        fee_token: Some(ALPHA_USD),
+        max_priority_fee_per_gas: base_fee / 10,
+        max_fee_per_gas: base_fee * 2,
+        gas_limit: TIP20_TRANSFER_GAS,
+        calls: vec![Call { to: TxKind::Call(PATH_USD), value: U256::ZERO, input: calldata }],
+        access_list: Default::default(),
+        nonce_key: U256::MAX, // Expiring nonce mode
+        nonce: 0,             // Always 0 for expiring nonces
+        fee_payer_signature: None,
+        valid_before: Some(valid_before), // Required for expiring nonces
+        valid_after: None,
+        key_authorization: None,
+        tempo_authorization_list: vec![],
+    };
+
+    let sig_hash = tempo_tx.signature_hash();
+    let signature = signer.sign_hash(&sig_hash).await.unwrap();
+    let tempo_sig = TempoSignature::Primitive(PrimitiveSignature::Secp256k1(signature));
+    let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
+    let envelope = TempoTxEnvelope::AA(signed_tx);
+
+    let mut encoded = Vec::new();
+    envelope.encode_2718(&mut encoded);
+    let tx_hash = provider.send_raw_transaction(&encoded).await.unwrap();
+    let receipt = tx_hash.get_receipt().await.unwrap();
+
+    assert!(receipt.status(), "Tempo AA transaction with expiring nonce should succeed");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_tempo_aa_transaction_multiple_calls() {
+    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let recipient1 = accounts[1];
+    let recipient2 = accounts[2];
+    let signer = dev_key(0);
+
+    let token = IERC20::new(PATH_USD, &provider);
+    let chain_id = provider.get_chain_id().await.unwrap();
+    let base_fee = provider.get_gas_price().await.unwrap();
+
+    let recipient1_balance_before = token.balanceOf(recipient1).call().await.unwrap();
+    let recipient2_balance_before = token.balanceOf(recipient2).call().await.unwrap();
+
+    // Build multiple calls in a single transaction
+    let amount1 = U256::from(25_000);
+    let amount2 = U256::from(35_000);
+
+    let call1_data: Bytes = token.transfer(recipient1, amount1).calldata().clone();
+    let call2_data: Bytes = token.transfer(recipient2, amount2).calldata().clone();
+
+    let tempo_tx = TempoTransaction {
+        chain_id,
+        fee_token: Some(ALPHA_USD),
+        max_priority_fee_per_gas: base_fee / 10,
+        max_fee_per_gas: base_fee * 2,
+        gas_limit: TIP20_TRANSFER_GAS * 2, // More gas for multiple calls
+        calls: vec![
+            Call { to: TxKind::Call(PATH_USD), value: U256::ZERO, input: call1_data },
+            Call { to: TxKind::Call(PATH_USD), value: U256::ZERO, input: call2_data },
+        ],
+        access_list: Default::default(),
+        nonce_key: U256::from(5),
+        nonce: 0,
+        fee_payer_signature: None,
+        valid_before: None,
+        valid_after: None,
+        key_authorization: None,
+        tempo_authorization_list: vec![],
+    };
+
+    let sig_hash = tempo_tx.signature_hash();
+    let signature = signer.sign_hash(&sig_hash).await.unwrap();
+    let tempo_sig = TempoSignature::Primitive(PrimitiveSignature::Secp256k1(signature));
+    let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
+    let envelope = TempoTxEnvelope::AA(signed_tx);
+
+    let mut encoded = Vec::new();
+    envelope.encode_2718(&mut encoded);
+    let tx_hash = provider.send_raw_transaction(&encoded).await.unwrap();
+    let receipt = tx_hash.get_receipt().await.unwrap();
+
+    assert!(receipt.status(), "Tempo AA transaction with multiple calls should succeed");
+
+    // Verify both recipients received tokens
+    let recipient1_balance_after = token.balanceOf(recipient1).call().await.unwrap();
+    let recipient2_balance_after = token.balanceOf(recipient2).call().await.unwrap();
+
+    assert_eq!(
+        recipient1_balance_after,
+        recipient1_balance_before + amount1,
+        "Recipient 1 should receive first transfer amount"
+    );
+    assert_eq!(
+        recipient2_balance_after,
+        recipient2_balance_before + amount2,
+        "Recipient 2 should receive second transfer amount"
+    );
+}

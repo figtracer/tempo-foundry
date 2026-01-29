@@ -13,12 +13,14 @@ use revm::state::{AccountInfo, Bytecode};
 use std::collections::HashMap;
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_precompiles::{
+    TIP_FEE_MANAGER_ADDRESS,
     account_keychain::{
         AccountKeychain,
         IAccountKeychain::{SignatureType, authorizeKeyCall},
     },
     error::TempoPrecompileError,
     storage::{PrecompileStorageProvider, StorageCtx},
+    tip_fee_manager::{IFeeManager, TipFeeManager},
     tip20::{ITIP20, TIP20Token},
 };
 
@@ -225,6 +227,52 @@ pub fn initialize_tempo_precompiles(
                     limits: vec![],
                 },
             )?;
+        }
+
+        // Initialize TipFeeManager and set default fee tokens for test accounts
+        // Alice (0) -> AlphaUSD, Bob (1) -> BetaUSD, Charlie (2) -> ThetaUSD, others -> PathUSD
+        let mut fee_manager = TipFeeManager::new();
+        fee_manager.initialize()?;
+
+        for (i, &account) in test_accounts.iter().enumerate() {
+            let fee_token = match i {
+                0 => ALPHA_USD, // Alice
+                1 => BETA_USD,  // Bob
+                2 => THETA_USD, // Charlie
+                _ => PATH_USD,  // Everyone else
+            };
+            fee_manager
+                .set_user_token(account, IFeeManager::setUserTokenCall { token: fee_token })?;
+        }
+
+        // Mint fee tokens to the FeeManager contract for liquidity operations
+        for &token_address in &tokens {
+            let mut token = TIP20Token::from_address(token_address)?;
+            token.mint(
+                ADMIN,
+                ITIP20::mintCall { to: TIP_FEE_MANAGER_ADDRESS, amount: mint_amount },
+            )?;
+        }
+
+        // Mint pairwise FeeAMM liquidity for all fee token pairs (both directions)
+        // This enables EIP-1559/legacy transactions by allowing fee swaps between tokens
+        // Liquidity amount: 10^10 tokens (matching Tempo genesis)
+        let liquidity_amount = U256::from(10u64.pow(10));
+
+        // Create bidirectional liquidity pools between all fee tokens
+        // Pools are directional: user_token -> validator_token
+        for &user_token in &tokens {
+            for &validator_token in &tokens {
+                if user_token != validator_token {
+                    fee_manager.mint(
+                        ADMIN,
+                        user_token,
+                        validator_token,
+                        liquidity_amount,
+                        ADMIN,
+                    )?;
+                }
+            }
         }
 
         Ok(())

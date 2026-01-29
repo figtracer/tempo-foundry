@@ -370,7 +370,9 @@ echo -e "\n=== ANVIL FORK TESTS ==="
 # Test anvil forking the Tempo network using the faucet-funded account
 ANVIL_PORT=8546
 echo "Starting anvil fork..."
-anvil --tempo --fork-url "$ETH_RPC_URL" --port $ANVIL_PORT --retries 10 --timeout 60000 &
+# Pass hardfork to anvil (lowercase for CLI compatibility)
+ANVIL_HARDFORK=$(echo "$HARDFORK" | tr '[:upper:]' '[:lower:]')
+anvil --tempo --hardfork "$ANVIL_HARDFORK" --fork-url "$ETH_RPC_URL" --port $ANVIL_PORT --retries 10 --timeout 60000 &
 ANVIL_PID=$!
 
 # Ensure anvil is stopped on script exit

@@ -35,10 +35,34 @@ TEMPO_FEE_TOKEN='' forge script script/Mail.s.sol --sig "run(string)" "$(date +%
 
 echo -e "\n=== ANVIL FORK TESTS ==="
 # Test anvil forking the Tempo network
-# Start anvil forking the remote network in the background
-anvil --fork-url "$ETH_RPC_URL" --port 8546 &
-ANVIL_PID=$!
-sleep 3
+# Start anvil forking the remote network in the background with retries
+# Note: --tempo flag enables Tempo mode for proper fee token handling
+ANVIL_PORT=8546
+ANVIL_PID=""
+for attempt in {1..5}; do
+  echo "Starting anvil fork (attempt $attempt/5)..."
+  anvil --tempo --fork-url "$ETH_RPC_URL" --port $ANVIL_PORT &
+  ANVIL_PID=$!
+  sleep 5
+  
+  # Check if anvil is responding
+  if cast client --rpc-url "http://127.0.0.1:$ANVIL_PORT" 2>/dev/null; then
+    echo "Anvil fork started successfully"
+    break
+  fi
+  
+  # Kill failed anvil and retry
+  kill $ANVIL_PID 2>/dev/null || true
+  ANVIL_PID=""
+  
+  if [[ $attempt -eq 5 ]]; then
+    echo "ERROR: Failed to start anvil fork after 5 attempts"
+    exit 1
+  fi
+  
+  echo "Anvil failed to start, retrying in 3s..."
+  sleep 3
+done
 
 # Ensure anvil is stopped on script exit
 trap 'kill $ANVIL_PID 2>/dev/null || true' EXIT

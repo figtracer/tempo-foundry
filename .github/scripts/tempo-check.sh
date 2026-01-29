@@ -86,46 +86,32 @@ TEMPO_FEE_TOKEN="$FEE_TOKEN" forge test --rpc-url http://127.0.0.1:8546
 echo -e "\n=== ANVIL FORK: FORGE SCRIPT ==="
 TEMPO_FEE_TOKEN="$FEE_TOKEN" forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url http://127.0.0.1:8546
 
-echo -e "\n=== ANVIL FORK: CREATE AND FUND ADDRESS ==="
-fork_wallet_json="$(cast wallet new --json)"
-FORK_ADDR="$(jq -r '.[0].address' <<<"$fork_wallet_json")"
-FORK_PK="$(jq -r '.[0].private_key' <<<"$fork_wallet_json")"
-printf "Fork address: %s\n" "$FORK_ADDR"
-
-# In Tempo mode, we need fee token balance, not just ETH balance
-# Use one of the pre-funded dev accounts to transfer fee tokens
+# Use dev account directly - already funded with fee tokens during genesis
 DEV_PK="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-# Transfer PathUSD (default fee token) to the new address
-# TIP20 tokens use 6 decimals, transfer 1000 tokens = 10^9 units
-cast erc20 transfer 0x20c0000000000000000000000000000000000000 "$FORK_ADDR" 1000000000 --rpc-url http://127.0.0.1:8546 --private-key "$DEV_PK"
-# Also transfer AlphaUSD for the ERC20 transfer test (1000 tokens)
-cast erc20 transfer 0x20c0000000000000000000000000000000000001 "$FORK_ADDR" 1000000000 --rpc-url http://127.0.0.1:8546 --private-key "$DEV_PK"
-sleep 1
 
 echo -e "\n=== ANVIL FORK: CAST SEND ==="
-# Use explicit --fee-token since the new account doesn't have a default fee token set
-# Use explicit --gas-limit because gas estimation for Tempo AA transactions needs work
-cast send --fee-token 0x20c0000000000000000000000000000000000000 --gas-limit 100000 --rpc-url http://127.0.0.1:8546 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$FORK_PK"
+# Dev account (Alice) has AlphaUSD as default fee token
+cast send --gas-limit 100000 --rpc-url http://127.0.0.1:8546 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$DEV_PK"
 
 echo -e "\n=== ANVIL FORK: ERC20 TRANSFER ==="
 # Transfer AlphaUSD using AlphaUSD as fee token
-cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000001 0x20c0000000000000000000000000000000000001 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url http://127.0.0.1:8546 --private-key "$FORK_PK"
+cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000001 0x20c0000000000000000000000000000000000001 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url http://127.0.0.1:8546 --private-key "$DEV_PK"
 
 # T1-only features on anvil fork
 if [[ "$HARDFORK" == "T1" ]]; then
   echo -e "\n=== ANVIL FORK: CAST SEND WITH NONCE-KEY (2D Nonce) ==="
-  cast send --fee-token 0x20c0000000000000000000000000000000000000 --gas-limit 100000 --rpc-url http://127.0.0.1:8546 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$FORK_PK" --nonce 0 --nonce-key 100
+  cast send --gas-limit 100000 --rpc-url http://127.0.0.1:8546 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$DEV_PK" --nonce 0 --nonce-key 100
 
   echo -e "\n=== ANVIL FORK: CAST SEND WITH EXPIRING NONCE ==="
   VALID_BEFORE=$(($(date +%s) + 25))
-  cast send --fee-token 0x20c0000000000000000000000000000000000000 --gas-limit 100000 --rpc-url http://127.0.0.1:8546 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$FORK_PK" --expiring-nonce --valid-before "$VALID_BEFORE"
+  cast send --gas-limit 100000 --rpc-url http://127.0.0.1:8546 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$DEV_PK" --expiring-nonce --valid-before "$VALID_BEFORE"
 fi
 
 echo -e "\n=== ANVIL FORK: BATCH SEND ==="
-cast batch-send --fee-token 0x20c0000000000000000000000000000000000000 --rpc-url http://127.0.0.1:8546 \
+cast batch-send --rpc-url http://127.0.0.1:8546 \
   --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
   --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
-  --private-key "$FORK_PK"
+  --private-key "$DEV_PK"
 
 # Stop anvil
 kill $ANVIL_PID 2>/dev/null || true

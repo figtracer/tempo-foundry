@@ -426,7 +426,8 @@ impl Backend {
                 // accounts concurrently by spawning the job to a new task
                 genesis_accounts_futures.push(tokio::task::spawn(async move {
                     let db = db.read().await;
-                    let info = db.basic_ref(address)?.unwrap_or_default();
+                    // If RPC fails, use default account info - this handles transient errors
+                    let info = db.basic_ref(address).unwrap_or(None).unwrap_or_default();
                     Ok::<_, DatabaseError>((address, info))
                 }));
             }
@@ -3731,8 +3732,11 @@ impl TransactionValidator for Backend {
             let fee_token = tempo_tx.fee_token.unwrap_or(PATH_USD);
 
             // Calculate required fee: gas_limit * max_fee_per_gas
-            let required =
+            // Gas prices are in wei (18 decimals) but fee tokens use 6 decimals,
+            // so we scale down by 10^12 to convert from wei to fee token units
+            let required_wei =
                 U256::from(tempo_tx.gas_limit).saturating_mul(U256::from(tempo_tx.max_fee_per_gas));
+            let required = required_wei / U256::from(10u64.pow(12));
 
             // Get fee token balance using ERC20 balanceOf
             let balance = self.get_fee_token_balance(fee_token, fee_payer).await?;

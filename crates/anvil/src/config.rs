@@ -550,9 +550,7 @@ impl NodeConfig {
 
     /// Returns the configured Tempo hardfork, or the default (T0).
     pub fn get_tempo_hardfork(&self) -> TempoHardfork {
-        self.hardfork
-            .map(|h| TempoHardfork::from(h))
-            .unwrap_or_default()
+        self.hardfork.map(TempoHardfork::from).unwrap_or_default()
     }
 
     pub fn get_blob_excess_gas_and_price(&self) -> BlobExcessGasAndPrice {

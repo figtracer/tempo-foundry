@@ -1478,7 +1478,7 @@ async fn test_tempo_aa_expiring_nonce_replay() {
     // 1. Return an error (tx already known)
     // 2. Return the same tx hash (idempotent behavior)
     let result = provider.send_raw_transaction(&encoded).await;
-    
+
     if let Ok(pending) = result {
         // If accepted, it should return the same tx hash (not a new one)
         let second_tx_hash = *pending.tx_hash();
@@ -1581,7 +1581,10 @@ async fn test_tempo_aa_nonce_replay_same_key() {
     // This transaction with nonce=1 should succeed, proving nonce enforcement works
     let tx_hash2 = provider.send_raw_transaction(&encoded).await.unwrap();
     let receipt2 = tx_hash2.get_receipt().await.unwrap();
-    assert!(receipt2.status(), "Second transaction with nonce=1 should succeed (proves nonce enforcement)");
+    assert!(
+        receipt2.status(),
+        "Second transaction with nonce=1 should succeed (proves nonce enforcement)"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -1996,7 +1999,7 @@ async fn test_tempo_aa_nonce_too_high_rejected() {
         calls: vec![Call { to: TxKind::Call(PATH_USD), value: U256::ZERO, input: calldata }],
         access_list: Default::default(),
         nonce_key: U256::from(999), // Fresh nonce key
-        nonce: 5, // Nonce too high - should be 0
+        nonce: 5,                   // Nonce too high - should be 0
         fee_payer_signature: None,
         valid_before: None,
         valid_after: None,
@@ -2015,7 +2018,7 @@ async fn test_tempo_aa_nonce_too_high_rejected() {
 
     // Transaction may be accepted into pool but should fail during execution
     let result = provider.send_raw_transaction(&encoded).await;
-    if let Ok(pending) = result {
+    if result.is_ok() {
         // Mine a block to trigger execution
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         // The transaction should not produce a successful receipt
@@ -2089,7 +2092,7 @@ async fn test_tempo_aa_nonce_keys_are_isolated() {
         calls: vec![Call { to: TxKind::Call(PATH_USD), value: U256::ZERO, input: calldata }],
         access_list: Default::default(),
         nonce_key: U256::from(101), // Different key
-        nonce: 0, // Same nonce value - but different key, so should work
+        nonce: 0,                   // Same nonce value - but different key, so should work
         fee_payer_signature: None,
         valid_before: None,
         valid_after: None,
@@ -2217,10 +2220,5 @@ async fn test_block_timestamps_are_monotonic() {
         timestamp2,
         timestamp1
     );
-    assert_eq!(
-        timestamp2, future_timestamp,
-        "Block timestamp should match the set value"
-    );
+    assert_eq!(timestamp2, future_timestamp, "Block timestamp should match the set value");
 }
-
-

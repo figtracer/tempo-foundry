@@ -66,7 +66,7 @@ sol! {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_mode_enabled_by_default() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let block_number = provider.get_block_number().await.unwrap();
@@ -75,7 +75,7 @@ async fn test_tempo_mode_enabled_by_default() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_precompiles_have_code() {
-    let (api, _handle) = spawn(NodeConfig::test()).await;
+    let (api, _handle) = spawn(NodeConfig::test_tempo()).await;
 
     // Tempo precompiles should have sentinel bytecode (0xef)
     let nonce_code = api.get_code(NONCE_PRECOMPILE, None).await.unwrap();
@@ -91,7 +91,7 @@ async fn test_tempo_precompiles_have_code() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fee_tokens_deployed() {
-    let (api, _handle) = spawn(NodeConfig::test()).await;
+    let (api, _handle) = spawn(NodeConfig::test_tempo()).await;
 
     for token in [PATH_USD, ALPHA_USD, BETA_USD, THETA_USD] {
         let code = api.get_code(token, None).await.unwrap();
@@ -101,7 +101,7 @@ async fn test_fee_tokens_deployed() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fee_token_balances_minted_to_test_accounts() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let dev_accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -122,7 +122,7 @@ async fn test_fee_token_balances_minted_to_test_accounts() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tip20_token_metadata() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     // Test PathUSD metadata
@@ -143,7 +143,7 @@ async fn test_tip20_token_metadata() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tip20_transfer() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -192,7 +192,7 @@ async fn test_tip20_transfer() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tip20_approve_and_transfer_from() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -248,7 +248,7 @@ async fn test_tip20_approve_and_transfer_from() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tip20_total_supply() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let token = IERC20::new(PATH_USD, &provider);
@@ -264,7 +264,7 @@ async fn test_tip20_total_supply() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_block_has_timestamp() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     api.mine_one().await;
@@ -275,7 +275,7 @@ async fn test_block_has_timestamp() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_block_timestamp_increases() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     api.mine_one().await;
@@ -297,7 +297,7 @@ async fn test_block_timestamp_increases() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_native_eth_transfer_rejected_in_tempo_mode() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -324,7 +324,7 @@ async fn test_native_eth_transfer_rejected_in_tempo_mode() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_nonce_increments() {
     crate::init_tracing();
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -355,7 +355,7 @@ async fn test_nonce_increments() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multiple_transactions_in_block() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     api.anvil_set_auto_mine(false).await.unwrap();
@@ -401,7 +401,7 @@ async fn test_multiple_transactions_in_block() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_estimation() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -421,7 +421,7 @@ async fn test_gas_estimation() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_estimation_for_contract_call() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -445,7 +445,7 @@ async fn test_gas_estimation_for_contract_call() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_chain_id() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let chain_id = provider.get_chain_id().await.unwrap();
@@ -455,7 +455,7 @@ async fn test_chain_id() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_custom_chain_id() {
     let custom_chain_id = 42069u64;
-    let (_api, handle) = spawn(NodeConfig::test().with_chain_id(Some(custom_chain_id))).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo().with_chain_id(Some(custom_chain_id))).await;
     let provider = handle.http_provider();
 
     let chain_id = provider.get_chain_id().await.unwrap();
@@ -468,7 +468,7 @@ async fn test_custom_chain_id() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_dev_accounts_have_balance() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let genesis_balance = handle.genesis_balance();
@@ -481,7 +481,7 @@ async fn test_dev_accounts_have_balance() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_anvil_set_balance() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let random_address = Address::random();
@@ -498,7 +498,7 @@ async fn test_anvil_set_balance() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_anvil_set_code() {
-    let (api, _handle) = spawn(NodeConfig::test()).await;
+    let (api, _handle) = spawn(NodeConfig::test_tempo()).await;
 
     let target = Address::random();
 
@@ -518,7 +518,7 @@ async fn test_anvil_set_code() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_auto_mine_toggle() {
-    let (api, _handle) = spawn(NodeConfig::test()).await;
+    let (api, _handle) = spawn(NodeConfig::test_tempo()).await;
 
     assert!(api.anvil_get_auto_mine().unwrap());
 
@@ -531,7 +531,7 @@ async fn test_auto_mine_toggle() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_manual_mining() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let block_before = provider.get_block_number().await.unwrap();
@@ -553,7 +553,7 @@ async fn test_manual_mining() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_impersonate_account() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let impersonated = handle.dev_accounts().next().unwrap();
@@ -586,7 +586,7 @@ async fn test_impersonate_account() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_snapshot_and_revert() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -630,7 +630,7 @@ async fn test_snapshot_and_revert() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transfer_emits_event() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -667,7 +667,7 @@ async fn test_transfer_emits_event() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_block_gas_limit() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     api.mine_one().await;
@@ -679,7 +679,7 @@ async fn test_block_gas_limit() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transaction_respects_gas_limit() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -708,7 +708,7 @@ async fn test_transaction_respects_gas_limit() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_all_fee_tokens_have_correct_metadata() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let tokens = [
@@ -730,7 +730,7 @@ async fn test_all_fee_tokens_have_correct_metadata() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transfer_between_different_fee_tokens() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -767,7 +767,7 @@ async fn test_transfer_between_different_fee_tokens() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_price() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let gas_price = provider.get_gas_price().await.unwrap();
@@ -778,7 +778,7 @@ async fn test_gas_price() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_base_fee() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     api.mine_one().await;
@@ -795,7 +795,7 @@ async fn test_base_fee() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_eip1559_transaction() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -839,7 +839,7 @@ async fn test_eip1559_transaction() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_eip1559_fee_token_deduction() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -881,7 +881,7 @@ async fn test_eip1559_fee_token_deduction() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_legacy_transaction() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -939,7 +939,7 @@ fn dev_key(index: u32) -> PrivateKeySigner {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_transaction_basic() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1002,7 +1002,7 @@ async fn test_tempo_aa_transaction_basic() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_transaction_with_2d_nonce() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1055,7 +1055,7 @@ async fn test_tempo_aa_transaction_with_2d_nonce() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_transaction_with_valid_before() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1110,7 +1110,7 @@ async fn test_tempo_aa_transaction_with_valid_before() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_transaction_with_valid_after() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1170,7 +1170,7 @@ async fn test_tempo_aa_transaction_with_valid_after() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_transaction_expiring_nonce() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1226,7 +1226,7 @@ async fn test_tempo_aa_transaction_expiring_nonce() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_transaction_multiple_calls() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1303,7 +1303,7 @@ async fn test_tempo_aa_transaction_multiple_calls() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_expired_valid_before() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1357,7 +1357,7 @@ async fn test_tempo_aa_expired_valid_before() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_valid_after_future() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1422,7 +1422,7 @@ async fn test_tempo_aa_valid_after_future() {
 // This is standard mempool behavior - duplicate transactions are not re-executed.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_expiring_nonce_replay() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1495,7 +1495,7 @@ async fn test_tempo_aa_expiring_nonce_replay() {
 // We verify this by showing that a subsequent transaction with nonce=1 still works.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_nonce_replay_same_key() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1589,7 +1589,7 @@ async fn test_tempo_aa_nonce_replay_same_key() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_parallel_nonces_different_keys() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1661,7 +1661,7 @@ async fn test_tempo_aa_parallel_nonces_different_keys() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fee_token_swap_different_tokens() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1709,7 +1709,7 @@ async fn test_fee_token_swap_different_tokens() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_transaction_receipt_fields() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1764,7 +1764,7 @@ async fn test_tempo_aa_transaction_receipt_fields() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_get_transaction_by_hash() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1826,7 +1826,7 @@ async fn test_tempo_aa_get_transaction_by_hash() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_wrong_chain_id_rejected() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1873,7 +1873,7 @@ async fn test_tempo_aa_wrong_chain_id_rejected() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_gas_too_low_rejected() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1920,7 +1920,7 @@ async fn test_tempo_aa_gas_too_low_rejected() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_value_in_call_rejected() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -1975,7 +1975,7 @@ async fn test_tempo_aa_value_in_call_rejected() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_nonce_too_high_rejected() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -2033,7 +2033,7 @@ async fn test_tempo_aa_nonce_too_high_rejected() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_nonce_keys_are_isolated() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -2123,7 +2123,7 @@ async fn test_tempo_aa_nonce_keys_are_isolated() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tempo_aa_explicit_fee_token_selection() {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     let accounts: Vec<Address> = handle.dev_accounts().collect();
@@ -2197,7 +2197,7 @@ async fn test_tempo_aa_explicit_fee_token_selection() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_block_timestamps_are_monotonic() {
-    let (api, handle) = spawn(NodeConfig::test()).await;
+    let (api, handle) = spawn(NodeConfig::test_tempo()).await;
     let provider = handle.http_provider();
 
     // Mine the first block

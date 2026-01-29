@@ -117,4 +117,4 @@ jobs:
           ARBITRUM_RPC: ${{ secrets.ARBITRUM_RPC }}
           ETH_SEPOLIA_RPC: ${{ secrets.ETH_SEPOLIA_RPC }}
           TEMPO_TESTNET_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
-        run: cargo nextest run -p forge -p cast ${{ matrix.flags }}
+        run: cargo nextest run -p forge -p cast -p anvil ${{ matrix.flags }}

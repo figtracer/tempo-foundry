@@ -425,17 +425,16 @@ impl NodeConfig {
     /// Returns a new config intended to be used in tests, which does not print and binds to a
     /// random, free port by setting it to `0`.
     ///
-    /// Enables Tempo mode by default since tempo-foundry clients (forge, cast) use `TempoNetwork`
-    /// and expect Tempo-specific block fields like `timestampMillis`.
+    /// Returns a test config with standard Ethereum defaults.
     #[doc(hidden)]
     pub fn test() -> Self {
-        Self {
-            enable_tracing: true,
-            port: 0,
-            silent: true,
-            networks: NetworkConfigs::with_tempo(),
-            ..Default::default()
-        }
+        Self { enable_tracing: true, port: 0, silent: true, ..Default::default() }
+    }
+
+    /// Returns a test config with Tempo network enabled.
+    #[doc(hidden)]
+    pub fn test_tempo() -> Self {
+        Self { networks: NetworkConfigs::with_tempo(), ..Self::test() }
     }
 
     /// Returns a new config which does not initialize any accounts on node startup.
@@ -527,8 +526,8 @@ impl NodeConfig {
     /// In Tempo mode, uses the hardfork-specific base fee (10 gwei pre-T1, 20 gwei T1+).
     pub fn get_base_fee(&self) -> u64 {
         let default = if self.networks.is_tempo() {
-            // Use TempoHardfork's base_fee() which returns correct value per hardfork
-            TempoHardfork::default().base_fee()
+            // Use the configured Tempo hardfork's base fee, or default to T0
+            self.get_tempo_hardfork().base_fee()
         } else {
             INITIAL_BASE_FEE
         };
@@ -541,12 +540,19 @@ impl NodeConfig {
     /// In Tempo mode, uses the hardfork-specific base fee as gas price.
     pub fn get_gas_price(&self) -> u128 {
         let default = if self.networks.is_tempo() {
-            // Use TempoHardfork's base_fee() which returns correct value per hardfork
-            TempoHardfork::default().base_fee() as u128
+            // Use the configured Tempo hardfork's base fee
+            self.get_tempo_hardfork().base_fee() as u128
         } else {
             INITIAL_GAS_PRICE
         };
         self.gas_price.unwrap_or(default)
+    }
+
+    /// Returns the configured Tempo hardfork, or the default (T0).
+    pub fn get_tempo_hardfork(&self) -> TempoHardfork {
+        self.hardfork
+            .map(|h| TempoHardfork::from(h))
+            .unwrap_or_default()
     }
 
     pub fn get_blob_excess_gas_and_price(&self) -> BlobExcessGasAndPrice {

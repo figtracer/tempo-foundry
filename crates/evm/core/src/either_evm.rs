@@ -135,8 +135,9 @@ fn map_tempo_halt_to_op(halt: TempoHaltReason) -> OpHaltReason {
     match halt {
         TempoHaltReason::Ethereum(h) => OpHaltReason::Base(h),
         TempoHaltReason::SubblockTxFeePayment => {
-            // Map Tempo-specific halt to a generic halt
-            OpHaltReason::Base(HaltReason::OpcodeNotFound)
+            // Map Tempo fee payment halt to PrecompileError since fee payment
+            // involves interactions with Tempo precompiles (FeeAMM, etc.)
+            OpHaltReason::Base(HaltReason::PrecompileError)
         }
     }
 }
@@ -259,7 +260,11 @@ where
             Self::Eth(evm) => evm.precompiles(),
             Self::Op(evm) => evm.precompiles(),
             Self::Tempo(evm) => {
-                // SAFETY: Same as precompiles_mut - the cast is safe when P = PrecompilesMap
+                // SAFETY: This transmute is sound only when P == PrecompilesMap.
+                // In Anvil, EitherEvm is always instantiated with P = PrecompilesMap
+                // (see executor.rs and mem/mod.rs). The `From<PrecompilesMap>` bound
+                // ensures P is at least convertible from PrecompilesMap, and in practice
+                // P is always exactly PrecompilesMap in this codebase.
                 unsafe { std::mem::transmute::<&PrecompilesMap, &P>(&evm.inner.precompiles) }
             }
         }
@@ -270,11 +275,11 @@ where
             Self::Eth(evm) => evm.precompiles_mut(),
             Self::Op(evm) => evm.precompiles_mut(),
             Self::Tempo(evm) => {
-                // SAFETY: This cast is safe because when EitherEvm is used with P = PrecompilesMap
-                // (which is always the case in Anvil), the Tempo variant's precompiles type
-                // matches. The PrecompilesMap is the same concrete type in both
-                // cases. We use unsafe transmute here because Rust doesn't have
-                // specialization.
+                // SAFETY: This transmute is sound only when P == PrecompilesMap.
+                // In Anvil, EitherEvm is always instantiated with P = PrecompilesMap
+                // (see executor.rs and mem/mod.rs). The `From<PrecompilesMap>` bound
+                // ensures P is at least convertible from PrecompilesMap, and in practice
+                // P is always exactly PrecompilesMap in this codebase.
                 unsafe {
                     std::mem::transmute::<&mut PrecompilesMap, &mut P>(&mut evm.inner.precompiles)
                 }

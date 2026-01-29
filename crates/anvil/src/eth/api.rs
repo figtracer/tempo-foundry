@@ -3102,21 +3102,25 @@ impl EthApi {
     ) -> Result<u128> {
         // If the request is a simple native token transfer we can optimize
         // We assume it's a transfer if we have no input data.
-        let to = request.to.as_ref().and_then(TxKind::to);
+        // Skip this optimization for Tempo mode since native ETH transfers are not allowed
+        // and Tempo AA transactions have higher intrinsic gas costs (~46k).
+        if !self.backend.is_tempo() {
+            let to = request.to.as_ref().and_then(TxKind::to);
 
-        // check certain fields to see if the request could be a simple transfer
-        let maybe_transfer = (request.input.input().is_none()
-            || request.input.input().is_some_and(|data| data.is_empty()))
-            && request.authorization_list.is_none()
-            && request.access_list.is_none()
-            && request.blob_versioned_hashes.is_none();
+            // check certain fields to see if the request could be a simple transfer
+            let maybe_transfer = (request.input.input().is_none()
+                || request.input.input().is_some_and(|data| data.is_empty()))
+                && request.authorization_list.is_none()
+                && request.access_list.is_none()
+                && request.blob_versioned_hashes.is_none();
 
-        if maybe_transfer
-            && let Some(to) = to
-            && let Ok(target_code) = self.backend.get_code_with_state(&state, *to)
-            && target_code.as_ref().is_empty()
-        {
-            return Ok(MIN_TRANSACTION_GAS);
+            if maybe_transfer
+                && let Some(to) = to
+                && let Ok(target_code) = self.backend.get_code_with_state(&state, *to)
+                && target_code.as_ref().is_empty()
+            {
+                return Ok(MIN_TRANSACTION_GAS);
+            }
         }
 
         let fees = FeeDetails::new(

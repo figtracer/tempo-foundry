@@ -128,23 +128,17 @@ if [[ "$HARDFORK" == "T1" ]]; then
   cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --nonce-key 2
 
   echo -e "\n=== CAST MKTX WITH EXPIRING NONCE (TIP-1009) ==="
-  # Use 25s expiry to stay safely within the 30s max (avoids timing issues with gas estimation)
-  VALID_BEFORE=$(($(date +%s) + 25))
-  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$(($(date +%s) + 25))"
 
   echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
-  VALID_BEFORE=$(($(date +%s) + 25))
-  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$(($(date +%s) + 25))"
 
   echo -e "\n=== CAST MKTX WITH EXPIRING NONCE + VALID-AFTER ==="
-  VALID_AFTER=$(($(date +%s) + 5))
-  VALID_BEFORE=$(($(date +%s) + 25))
-  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE" --valid-after "$VALID_AFTER"
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$(($(date +%s) + 25))" --valid-after "$(($(date +%s) + 5))"
 
   echo -e "\n=== CAST SEND WITH EXPIRING NONCE + VALID-AFTER ==="
   sleep 6  # Wait for valid_after to pass
-  VALID_BEFORE=$(($(date +%s) + 25))
-  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE" --valid-after "$(($(date +%s) - 1))"
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$(($(date +%s) + 25))" --valid-after "$(($(date +%s) - 1))"
 
   echo -e "\n=== SETUP ACCESS KEY ==="
   # Create an access key for testing
@@ -419,8 +413,7 @@ if [[ "$HARDFORK" == "T1" ]]; then
   cast send --fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --nonce-key 100
 
   echo -e "\n=== ANVIL FORK: CAST SEND WITH EXPIRING NONCE ==="
-  VALID_BEFORE=$(($(date +%s) + 25))
-  cast send --fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
+  cast send --fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$(($(date +%s) + 25))"
 fi
 
 echo -e "\n=== ANVIL FORK: BATCH SEND ==="

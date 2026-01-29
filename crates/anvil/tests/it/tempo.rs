@@ -2216,9 +2216,7 @@ async fn test_block_timestamps_are_monotonic() {
 
     assert!(
         timestamp2 > timestamp1,
-        "Block timestamps must be strictly increasing: {} should be > {}",
-        timestamp2,
-        timestamp1
+        "Block timestamps must be strictly increasing: {timestamp2} should be > {timestamp1}",
     );
     assert_eq!(timestamp2, future_timestamp, "Block timestamp should match the set value");
 }

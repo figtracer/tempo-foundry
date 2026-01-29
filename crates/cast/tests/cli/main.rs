@@ -2806,30 +2806,34 @@ Error: Multiple address-based authorizations provided. Only one address can be s
 "#]]);
 });
 
-casttest!(send_sync, async |_prj, cmd| {
-    let (_api, handle) = anvil::spawn(NodeConfig::test()).await;
-    let endpoint = handle.http_endpoint();
+casttest!(
+    #[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"]
+    send_sync,
+    async |_prj, cmd| {
+        let (_api, handle) = anvil::spawn(NodeConfig::test()).await;
+        let endpoint = handle.http_endpoint();
 
-    let output = cmd
-        .args([
-            "send",
-            "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-            "--value",
-            "1",
-            "--private-key",
-            "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-            "--rpc-url",
-            &endpoint,
-            "--sync",
-        ])
-        .assert_success()
-        .get_output()
-        .stdout_lossy();
+        let output = cmd
+            .args([
+                "send",
+                "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+                "--value",
+                "1",
+                "--private-key",
+                "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+                "--rpc-url",
+                &endpoint,
+                "--sync",
+            ])
+            .assert_success()
+            .get_output()
+            .stdout_lossy();
 
-    assert!(output.contains("transactionHash"));
-    assert!(output.contains("blockNumber"));
-    assert!(output.contains("gasUsed"));
-});
+        assert!(output.contains("transactionHash"));
+        assert!(output.contains("blockNumber"));
+        assert!(output.contains("gasUsed"));
+    }
+);
 
 casttest!(hash_message, |_prj, cmd| {
     cmd.args(["hash-message", "hello"]).assert_success().stdout_eq(str![[r#"

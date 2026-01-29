@@ -439,6 +439,185 @@ async fn test_gas_estimation_for_contract_call() {
     assert!(gas_estimate > 21000, "Contract call should use more than 21000 gas");
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_estimation_tempo_aa_transaction() {
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let recipient = accounts[1];
+
+    // Build a Tempo AA transaction request with fee token
+    let token = IERC20::new(PATH_USD, &provider);
+    let transfer_call = token.transfer(recipient, U256::from(1000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    // Create a TransactionRequest with Tempo AA fields (feeToken)
+    let tx: WithOtherFields<TransactionRequest> = WithOtherFields {
+        inner: TransactionRequest::default().from(accounts[0]).to(PATH_USD).with_input(calldata),
+        other: [("feeToken".to_string(), serde_json::json!(PATH_USD.to_string()))]
+            .into_iter()
+            .collect(),
+    };
+
+    // Gas estimation should succeed for Tempo AA transactions
+    let gas_estimate = provider.estimate_gas(tx).await.unwrap();
+
+    // Tempo AA transactions have higher intrinsic gas than regular transactions
+    // Base (21k) + signature verification + 2D nonce handling
+    assert!(
+        gas_estimate > 21000,
+        "Tempo AA gas estimate should be greater than 21000, got: {gas_estimate}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_estimation_tempo_aa_with_2d_nonce() {
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let recipient = accounts[1];
+
+    let token = IERC20::new(PATH_USD, &provider);
+    let transfer_call = token.transfer(recipient, U256::from(1000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    // Create a TransactionRequest with 2D nonce (nonceKey != 0)
+    let tx: WithOtherFields<TransactionRequest> = WithOtherFields {
+        inner: TransactionRequest::default()
+            .from(accounts[0])
+            .to(PATH_USD)
+            .with_input(calldata)
+            .with_nonce(0),
+        other: [
+            ("feeToken".to_string(), serde_json::json!(PATH_USD.to_string())),
+            ("nonceKey".to_string(), serde_json::json!("0x64")), // nonce_key = 100
+        ]
+        .into_iter()
+        .collect(),
+    };
+
+    // Gas estimation should succeed for 2D nonce transactions
+    let gas_estimate = provider.estimate_gas(tx).await.unwrap();
+
+    // 2D nonce transactions have additional gas costs for nonce key storage
+    assert!(
+        gas_estimate > 21000,
+        "2D nonce gas estimate should be greater than 21000, got: {gas_estimate}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_estimation_tempo_aa_expiring_nonce() {
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let recipient = accounts[1];
+
+    let token = IERC20::new(PATH_USD, &provider);
+    let transfer_call = token.transfer(recipient, U256::from(1000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    // Expiring nonce uses nonce_key = MAX
+    let max_nonce_key = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+
+    let tx: WithOtherFields<TransactionRequest> = WithOtherFields {
+        inner: TransactionRequest::default()
+            .from(accounts[0])
+            .to(PATH_USD)
+            .with_input(calldata)
+            .with_nonce(0),
+        other: [
+            ("feeToken".to_string(), serde_json::json!(PATH_USD.to_string())),
+            ("nonceKey".to_string(), serde_json::json!(max_nonce_key)),
+        ]
+        .into_iter()
+        .collect(),
+    };
+
+    // Gas estimation should succeed for expiring nonce transactions
+    let gas_estimate = provider.estimate_gas(tx).await.unwrap();
+
+    // Expiring nonce transactions have additional gas for replay protection
+    assert!(
+        gas_estimate > 21000,
+        "Expiring nonce gas estimate should be greater than 21000, got: {gas_estimate}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_estimation_converges_for_tempo_intrinsic_gas() {
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
+    let provider = handle.http_provider();
+
+    let accounts: Vec<Address> = handle.dev_accounts().collect();
+    let recipient = accounts[1];
+
+    let token = IERC20::new(PATH_USD, &provider);
+    let transfer_call = token.transfer(recipient, U256::from(1000));
+    let calldata: Bytes = transfer_call.calldata().clone();
+
+    // Create Tempo AA request
+    let tx: WithOtherFields<TransactionRequest> = WithOtherFields {
+        inner: TransactionRequest::default()
+            .from(accounts[0])
+            .to(PATH_USD)
+            .with_input(calldata.clone()),
+        other: [("feeToken".to_string(), serde_json::json!(PATH_USD.to_string()))]
+            .into_iter()
+            .collect(),
+    };
+
+    let gas_estimate = provider.estimate_gas(tx.clone()).await.unwrap();
+
+    // The estimated gas should be sufficient to execute the transaction
+    // Create and send the actual transaction with the estimated gas
+    let signer = dev_key(0);
+    let chain_id = provider.get_chain_id().await.unwrap();
+    let base_fee = provider.get_gas_price().await.unwrap();
+
+    let tempo_tx = TempoTransaction {
+        chain_id,
+        fee_token: Some(PATH_USD),
+        max_priority_fee_per_gas: base_fee / 10,
+        max_fee_per_gas: base_fee * 2,
+        gas_limit: gas_estimate,
+        calls: vec![Call { to: TxKind::Call(PATH_USD), value: U256::ZERO, input: calldata }],
+        access_list: Default::default(),
+        nonce_key: U256::ZERO,
+        nonce: 0,
+        fee_payer_signature: None,
+        valid_before: None,
+        valid_after: None,
+        key_authorization: None,
+        tempo_authorization_list: vec![],
+    };
+
+    let sig_hash = tempo_tx.signature_hash();
+    let signature = signer.sign_hash(&sig_hash).await.unwrap();
+    let tempo_sig = TempoSignature::Primitive(PrimitiveSignature::Secp256k1(signature));
+    let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
+    let envelope = TempoTxEnvelope::AA(signed_tx);
+
+    let mut encoded = Vec::new();
+    envelope.encode_2718(&mut encoded);
+
+    // Transaction should succeed with the estimated gas
+    let tx_hash = provider.send_raw_transaction(&encoded).await.unwrap();
+    let receipt = tx_hash.get_receipt().await.unwrap();
+    assert!(receipt.status(), "Transaction should succeed with estimated gas: {gas_estimate}");
+
+    // Gas used should be less than or equal to estimate
+    assert!(
+        receipt.gas_used() <= gas_estimate,
+        "Gas used ({}) should be <= estimate ({})",
+        receipt.gas_used(),
+        gas_estimate
+    );
+}
+
 // ============================================================================
 // Chain ID Tests
 // ============================================================================

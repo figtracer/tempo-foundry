@@ -87,12 +87,12 @@ Key extensions:
 - In `forge`:
   - `forge init -n tempo`: adds a Tempo-specific `Mail` template showcasing a `TIP20` transfer with an attached memo.
   - `forge install tempoxyz/tempo-std`: like `forge-std`, a collection of helpful contracts and libraries for Tempo-specific testing and utilities.
-  - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
+  - `--tempo.fee-token` support: pay gas fees in any `TIP20` stablecoin.
 
 - In `cast`:
   - `cast run`: updated to correctly process Tempo's system transactions when replaying a block.
   - `cast tip20`: alias to `cast erc20`.
-  - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
+  - `--tempo.fee-token` support: pay gas fees in any `TIP20` stablecoin.
 
 - Additionally:
   - Support for local and forked simulation of the Tempo execution environment.

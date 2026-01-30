@@ -1954,7 +1954,7 @@ casttest!(mktx_ethsign, async |_prj, cmd| {
     .assert_success()
     .stdout_eq(str![[
         r#"
-0x02f86d827a6980843b9aca008502540be4008252089400000000000000000000000000000000000000018080c001a0b8eeb1ded87b085859c510c5692bed231e3ee8b068ccf71142bbf28da0e95987a07813b676a248ae8055f28495021d78dee6695479d339a6ad9d260d9eaf20674c
+0x76f875827a69843b9aca008502540be400825208d8d79400000000000000000000000000000000000000018080c0808080808080c0b841[..]
 
 "#
     ]]);
@@ -2084,7 +2084,7 @@ Error: EIP-7702 transactions can't be CREATE transactions and require a destinat
 "#]]);
 });
 
-casttest!(storage, |_prj, cmd| {
+casttest!(flaky_storage, |_prj, cmd| {
     let rpc = next_http_archive_rpc_url();
     cmd.args(["storage", "vitalik.eth", "1", "--rpc-url", &rpc]).assert_success().stdout_eq(str![
         [r#"

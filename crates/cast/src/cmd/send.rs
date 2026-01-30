@@ -74,6 +74,7 @@ pub enum SendTxSubcommands {
 impl SendTxArgs {
     pub async fn run(self) -> eyre::Result<()> {
         let Self { to, mut sig, mut args, send_tx, tx, command, unlocked, data } = self;
+        let fee_token = tx.tempo.fee_token;
 
         if let Some(data) = data {
             sig = Some(data);
@@ -165,9 +166,9 @@ impl SendTxArgs {
             }
 
             let (tx, _) = if let Some(ref opts) = sponsor_opts {
-                builder.build_sponsored(config.sender, send_tx.fee_token, opts).await?
+                builder.build_sponsored(config.sender, fee_token, opts).await?
             } else {
-                builder.build(config.sender, send_tx.fee_token).await?
+                builder.build(config.sender, fee_token).await?
             };
 
             cast_send(
@@ -204,9 +205,9 @@ impl SendTxArgs {
                 && let WalletSigner::Browser(ref browser_signer) = signer
             {
                 let (tx_request, _) = if let Some(ref opts) = sponsor_opts {
-                    builder.build_sponsored(from, send_tx.fee_token, opts).await?
+                    builder.build_sponsored(from, fee_token, opts).await?
                 } else {
-                    builder.build(from, send_tx.fee_token).await?
+                    builder.build(from, fee_token).await?
                 };
                 let tx_hash =
                     browser_signer.send_transaction_via_browser(tx_request.inner.inner).await?;
@@ -233,14 +234,10 @@ impl SendTxArgs {
             // use the correct address. For regular transactions, pass the signer so EIP-7702
             // authorization signing can work.
             let (tx_request, _) = match (&access_key_config, &sponsor_opts) {
-                (Some(_), Some(opts)) => {
-                    builder.build_sponsored(from, send_tx.fee_token, opts).await?
-                }
-                (Some(_), None) => builder.build(from, send_tx.fee_token).await?,
-                (None, Some(opts)) => {
-                    builder.build_sponsored(&signer, send_tx.fee_token, opts).await?
-                }
-                (None, None) => builder.build(&signer, send_tx.fee_token).await?,
+                (Some(_), Some(opts)) => builder.build_sponsored(from, fee_token, opts).await?,
+                (Some(_), None) => builder.build(from, fee_token).await?,
+                (None, Some(opts)) => builder.build_sponsored(&signer, fee_token, opts).await?,
+                (None, None) => builder.build(&signer, fee_token).await?,
             };
 
             if let Some(ref config) = access_key_config {

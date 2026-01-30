@@ -291,7 +291,7 @@ forgetest_async!(can_create_using_unlocked, |prj, cmd| {
     foundry_test_utils::util::initialize(prj.root());
     prj.initialize_default_contracts();
 
-    let (_api, handle) = spawn(NodeConfig::test()).await;
+    let (_api, handle) = spawn(NodeConfig::test_tempo()).await;
     let rpc = handle.http_endpoint();
     let dev = handle.dev_accounts().next().unwrap();
 

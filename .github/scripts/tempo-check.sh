@@ -15,7 +15,7 @@ FEE_TOKEN="${TEMPO_FEE_TOKEN:-0x20c0000000000000000000000000000000000000}"
 # Build fee token args if not using native token (array for safe expansion)
 FEE_TOKEN_ARG=()
 if [[ "$FEE_TOKEN" != "0x20c0000000000000000000000000000000000000" ]]; then
-  FEE_TOKEN_ARG=(--fee-token "$FEE_TOKEN")
+  FEE_TOKEN_ARG=(--tempo.fee-token "$FEE_TOKEN")
 fi
 
 echo -e "\n=== USING HARDFORK: $HARDFORK ==="
@@ -92,24 +92,24 @@ fi
 
 echo -e "\n=== CAST ERC20 TRANSFER WITH FEE TOKEN ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
-  cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
-  cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+  cast erc20 transfer --tempo.fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+  cast erc20 transfer --tempo.fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
 else
   cast erc20 transfer ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} "${FEE_TOKEN}" 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
 fi
 
 echo -e "\n=== CAST ERC20 APPROVE WITH FEE TOKEN ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
-  cast erc20 approve --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
-  cast erc20 approve --fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+  cast erc20 approve --tempo.fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+  cast erc20 approve --tempo.fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
 else
   echo "skipped (custom fee token set)"
 fi
 
 echo -e "\n=== CAST SEND WITH FEE TOKEN ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
-  cast send --fee-token 0x20C0000000000000000000000000000000000002 --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
-  cast send --fee-token 0x20C0000000000000000000000000000000000003 --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+  cast send --tempo.fee-token 0x20C0000000000000000000000000000000000002 --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+  cast send --tempo.fee-token 0x20C0000000000000000000000000000000000003 --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
 else
   cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
 fi
@@ -203,16 +203,16 @@ for i in {1..100}; do
 done
 sleep 3
 
-echo -e "\n=== CAST SEND WITH SPONSOR (--sponsor-signature) ==="
+echo -e "\n=== CAST SEND WITH SPONSOR (--tempo.sponsor-signature) ==="
 # Test sponsored transactions using pre-signed signature.
-# Step 1: Get the fee_payer_signature_hash using --print-sponsor-hash
+# Step 1: Get the fee_payer_signature_hash using --tempo.print-sponsor-hash
 # Step 2: Sign it with the sponsor's private key
-# Step 3: Send with --sponsor-signature
+# Step 3: Send with --tempo.sponsor-signature
 
 # Step 1: Get the hash that the sponsor needs to sign
 FEE_PAYER_HASH=$(cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" \
-  --print-sponsor-hash)
+  --tempo.print-sponsor-hash)
 printf "Fee payer signature hash: %s\n" "$FEE_PAYER_HASH"
 
 # Step 2: Sponsor signs the hash
@@ -222,7 +222,7 @@ printf "Sponsor signature: %s\n" "$SPONSOR_SIG"
 # Step 3: Send the sponsored transaction with the signature
 RECEIPT=$(cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" \
-  --sponsor-signature "$SPONSOR_SIG" --json)
+  --tempo.sponsor-signature "$SPONSOR_SIG" --json)
 
 # Verify the fee_payer in the receipt matches the sponsor address
 RECEIPT_FEE_PAYER=$(echo "$RECEIPT" | jq -r '.feePayer // .fee_payer // empty')
@@ -457,22 +457,22 @@ TEMPO_FEE_TOKEN="$FEE_TOKEN" forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]
 
 echo -e "\n=== ANVIL FORK: CAST SEND ==="
 # Use the faucet-funded account with explicit fee token (account state is forked from devnet)
-cast send --fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
 
 echo -e "\n=== ANVIL FORK: ERC20 TRANSFER ==="
-cast erc20 transfer --fee-token "$FEE_TOKEN" 0x20c0000000000000000000000000000000000000 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$PK"
+cast erc20 transfer --tempo.fee-token "$FEE_TOKEN" 0x20c0000000000000000000000000000000000000 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$PK"
 
 # T1-only features on anvil fork
 if [[ "$HARDFORK" == "T1" ]]; then
   echo -e "\n=== ANVIL FORK: CAST SEND WITH NONCE-KEY (2D Nonce) ==="
-  cast send --fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --nonce-key 100
+  cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --nonce-key 100
 
   echo -e "\n=== ANVIL FORK: CAST SEND WITH EXPIRING NONCE ==="
-  cast send --fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$(($(date +%s) + 25))"
+  cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$(($(date +%s) + 25))"
 fi
 
 echo -e "\n=== ANVIL FORK: BATCH SEND ==="
-cast batch-send --fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT \
+cast batch-send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT \
   --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
   --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
   --private-key "$PK"

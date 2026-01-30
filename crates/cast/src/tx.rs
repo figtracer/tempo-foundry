@@ -219,19 +219,21 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     /// Fetches transaction receipt by hash, waiting for confirmations if necessary.
     /// # Example
     ///
-    /// ```
-    /// use alloy_provider::{ProviderBuilder, RootProvider, network::AnyNetwork};
+    /// ```no_run
+    /// use alloy_provider::ProviderBuilder;
     /// use cast::tx::CastTxSender;
+    /// use tempo_alloy::TempoNetwork;
     ///
     /// async fn foo() -> eyre::Result<()> {
-    /// let provider =
-    ///     ProviderBuilder::<_, _, AnyNetwork>::default().connect("http://localhost:8545").await?;
-    /// let cast = CastTxSender::new(provider);
-    /// let tx_hash = "0xf8d1713ea15a81482958fb7ddf884baee8d3bcc478c5f2f604e008dc788ee4fc";
-    /// let receipt = cast.receipt(tx_hash.to_string(), None, 1, None, false).await?;
-    /// println!("{}", receipt);
-    /// # Ok(())
-    /// # }
+    ///     let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
+    ///         .connect("http://localhost:8545")
+    ///         .await?;
+    ///     let cast = CastTxSender::new(provider);
+    ///     let tx_hash = "0xf8d1713ea15a81482958fb7ddf884baee8d3bcc478c5f2f604e008dc788ee4fc";
+    ///     let receipt = cast.receipt(tx_hash.to_string(), None, 1, None, false).await?;
+    ///     println!("{}", receipt);
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn receipt(
         &self,

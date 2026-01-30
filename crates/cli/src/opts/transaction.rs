@@ -2,18 +2,11 @@ use std::str::FromStr;
 
 use super::TempoOpts;
 use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization};
-use alloy_primitives::{Address, Signature, U64, U256, hex};
+use alloy_primitives::{Address, U64, U256, hex};
 use alloy_rlp::Decodable;
 use clap::Parser;
 
 use crate::utils::{parse_ether_value, parse_json};
-
-/// Parse a hex-encoded signature string into a Signature.
-fn parse_signature(sig_hex: &str) -> eyre::Result<Signature> {
-    // Remove 0x prefix if present
-    let sig_hex = sig_hex.strip_prefix("0x").unwrap_or(sig_hex);
-    Signature::from_str(sig_hex).map_err(|e| eyre::eyre!("Invalid signature: {e}"))
-}
 
 /// CLI helper to parse a EIP-7702 authorization list.
 /// Can be either a hex-encoded signed authorization or an address.
@@ -144,50 +137,7 @@ pub struct TransactionOpts {
     pub access_list: Option<Option<AccessList>>,
 
     #[command(flatten)]
-    pub sponsor: SponsorOpts,
-
-    #[command(flatten)]
     pub tempo: TempoOpts,
-}
-
-/// Options for sponsored (gasless) transactions.
-///
-/// The sponsor pays the gas fees for the transaction, enabling gasless transactions
-/// for the sender. Provide a pre-signed signature from the sponsor.
-#[derive(Clone, Debug, Default, Parser)]
-#[command(next_help_heading = "Sponsor options")]
-pub struct SponsorOpts {
-    /// Pre-signed sponsor signature for sponsored transactions (Tempo).
-    ///
-    /// Hex-encoded signature (with or without 0x prefix) that commits the sponsor
-    /// to paying gas fees. The signature must be over the fee_payer_signature_hash
-    /// which can be obtained using --print-sponsor-hash.
-    #[arg(long = "sponsor-signature", value_name = "SIGNATURE", env = "TEMPO_SPONSOR_SIGNATURE")]
-    pub sponsor_signature: Option<String>,
-
-    /// Print the fee_payer_signature_hash and exit without sending.
-    ///
-    /// Use this to obtain the hash that the sponsor must sign. The sponsor signs
-    /// this hash with their private key, then provides it via --sponsor-signature.
-    #[arg(long = "print-sponsor-hash")]
-    pub print_sponsor_hash: bool,
-}
-
-impl SponsorOpts {
-    /// Returns true if sponsor signature is provided (not just print-hash mode).
-    pub fn is_sponsor(&self) -> bool {
-        self.sponsor_signature.is_some()
-    }
-
-    /// Returns true if we should print the sponsor hash and exit.
-    pub fn should_print_hash(&self) -> bool {
-        self.print_sponsor_hash
-    }
-
-    /// Parses the provided sponsor signature.
-    pub fn get_signature(&self) -> eyre::Result<Option<Signature>> {
-        self.sponsor_signature.as_ref().map(|s| parse_signature(s)).transpose()
-    }
 }
 
 #[cfg(test)]

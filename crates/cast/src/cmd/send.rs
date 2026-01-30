@@ -108,7 +108,7 @@ impl SendTxArgs {
         }
 
         // Clone tx_opts if sponsor is present or print-sponsor-hash mode
-        let sponsor_opts = if tx.sponsor.is_sponsor() || tx.sponsor.should_print_hash() {
+        let sponsor_opts = if tx.tempo.is_sponsor() || tx.tempo.should_print_hash() {
             Some(tx.clone())
         } else {
             None

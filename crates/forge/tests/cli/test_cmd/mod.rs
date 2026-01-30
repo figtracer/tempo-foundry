@@ -678,6 +678,33 @@ Ran 1 test suite [ELAPSED]: 1 tests passed, 0 failed, 0 skipped (1 total tests)
 "#]]);
 });
 
+// Validates BPO1 blob gas price calculation during fork transaction replay.
+// Block 24127158 has a blob tx at index 0, target tx at index 1.
+// Forking at the target tx replays the blob tx with correct BPO1 blob base fee calculation.
+forgetest_init!(fork_tx_replay_bpo1_blob_base_fee, |prj, cmd| {
+    let endpoint = rpc::next_http_archive_rpc_url();
+
+    prj.add_test(
+        "BlobFork.t.sol",
+        &r#"
+import {Test} from "forge-std/Test.sol";
+
+contract BlobForkTest is Test {
+    function test_fork_with_blob_replay() public {
+        // Fork at tx index 1 in block 24127158, which replays blob tx at index 0
+        bytes32 txHash = 0xa0f349b16e0f338ee760a9954ff5dbf2a402cff3320f3fe2c3755aee8babc335;
+        vm.createSelectFork("<url>", txHash);
+        // If we get here, blob tx replay succeeded
+        assertTrue(true);
+    }
+}
+    "#
+        .replace("<url>", &endpoint),
+    );
+
+    cmd.args(["test", "-vvvv"]).assert_success();
+});
+
 // https://github.com/foundry-rs/foundry/issues/6579
 forgetest_init!(include_custom_types_in_traces, |prj, cmd| {
     prj.add_test(
@@ -2693,11 +2720,16 @@ Ran 8 tests for src/AssumeNoRevertTest.t.sol:ReverterTest
 "#]]);
 });
 
+<<<<<<< HEAD
 forgetest_async!(
     #[ignore = "tempo skip - CREATE2 salt detection prompts for TTY which fails in CI"]
     can_get_broadcast_txs,
     |prj, cmd| {
         foundry_test_utils::util::initialize(prj.root());
+=======
+forgetest_async!(flaky_can_get_broadcast_txs, |prj, cmd| {
+    foundry_test_utils::util::initialize(prj.root());
+>>>>>>> upstream/master
 
         let (_api, handle) = spawn(NodeConfig::test().silent()).await;
 
@@ -3380,6 +3412,7 @@ Traces:
 });
 
 // <https://github.com/foundry-rs/foundry/issues/10068>
+<<<<<<< HEAD
 forgetest_init!(
     #[ignore = "tempo skip - external API"]
     can_upload_selectors_with_path,
@@ -3388,6 +3421,13 @@ forgetest_init!(
         prj.add_source(
             "CounterV1.sol",
             r#"
+=======
+forgetest_init!(flaky_can_upload_selectors_with_path, |prj, cmd| {
+    prj.initialize_default_contracts();
+    prj.add_source(
+        "CounterV1.sol",
+        r#"
+>>>>>>> upstream/master
 contract Counter {
     uint256 public number;
 
@@ -3850,6 +3890,7 @@ Ran 1 test suite [ELAPSED]: 2 tests passed, 0 failed, 0 skipped (2 total tests)
 });
 
 // <https://github.com/foundry-rs/foundry/issues/10544>
+<<<<<<< HEAD
 forgetest_init!(
     #[ignore = "tempo skip - uses native ETH transfer which Tempo does not support"]
     should_not_panic_on_cool,
@@ -3858,6 +3899,13 @@ forgetest_init!(
         prj.add_test(
             "Counter.t.sol",
             r#"
+=======
+forgetest_init!(flaky_should_not_panic_on_cool, |prj, cmd| {
+    prj.initialize_default_contracts();
+    prj.add_test(
+        "Counter.t.sol",
+        r#"
+>>>>>>> upstream/master
 import "forge-std/Test.sol";
 import {Counter} from "../src/Counter.sol";
 
@@ -4119,6 +4167,7 @@ Tip: Run `forge test --rerun` to retry only the 1 failed test
 
 // This test is a copy of `error_event_decode_with_cache` in cast/tests/cli/selectors.rs
 // but it uses `forge build` to check that the project selectors are cached by default.
+<<<<<<< HEAD
 forgetest_init!(
     #[ignore = "tempo skip - external API"]
     build_with_selectors_cache,
@@ -4127,6 +4176,13 @@ forgetest_init!(
         prj.add_source(
             "LocalProjectContract",
             r#"
+=======
+forgetest_init!(flaky_build_with_selectors_cache, |prj, cmd| {
+    prj.initialize_default_contracts();
+    prj.add_source(
+        "LocalProjectContract",
+        r#"
+>>>>>>> upstream/master
 contract ContractWithCustomError {
     error AnotherValueTooHigh(uint256, address);
     event MyUniqueEventWithinLocalProject(uint256 a, address b);

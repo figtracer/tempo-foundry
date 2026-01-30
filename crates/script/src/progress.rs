@@ -246,7 +246,11 @@ impl ScriptProgress {
                     let msg = format_receipt(
                         deployment_sequence.chain.into(),
                         &receipt,
+<<<<<<< HEAD
                         fee_token_symbol.clone(),
+=======
+                        Some(deployment_sequence),
+>>>>>>> upstream/master
                     );
                     seq_progress.inner.write().finish_tx_spinner_with_msg(tx_hash, &msg)?;
 
@@ -263,7 +267,11 @@ impl ScriptProgress {
                     let msg = format_receipt(
                         deployment_sequence.chain.into(),
                         &receipt,
+<<<<<<< HEAD
                         fee_token_symbol.clone(),
+=======
+                        Some(deployment_sequence),
+>>>>>>> upstream/master
                     );
                     seq_progress.inner.write().finish_tx_spinner_with_msg(tx_hash, &msg)?;
 

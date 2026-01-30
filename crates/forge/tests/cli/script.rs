@@ -3334,6 +3334,7 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 "#]]);
 });
 
+<<<<<<< HEAD
 forgetest_async!(
     #[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"]
     flaky_can_deploy_with_broadcast_in_setup,
@@ -3342,6 +3343,13 @@ forgetest_async!(
         prj.add_script(
             "Deploy.s.sol",
             r#"
+=======
+forgetest_async!(flaky_can_deploy_with_broadcast_in_setup, |prj, cmd| {
+    foundry_test_utils::util::initialize(prj.root());
+    prj.add_script(
+        "Deploy.s.sol",
+        r#"
+>>>>>>> upstream/master
 import "forge-std/Script.sol";
 import {Vm} from "forge-std/Vm.sol";
 contract DeployScript is Script {

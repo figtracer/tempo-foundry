@@ -144,7 +144,11 @@ impl RunArgs {
         let compute_units_per_second =
             if self.no_rate_limit { Some(u64::MAX) } else { self.compute_units_per_second };
 
+<<<<<<< HEAD
         let provider = get_tempo_provider_builder(&config)?
+=======
+        let provider = foundry_cli::utils::get_provider_builder(&config, false)?
+>>>>>>> upstream/master
             .compute_units_per_second_opt(compute_units_per_second)
             .build()?;
 

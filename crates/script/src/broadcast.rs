@@ -23,6 +23,7 @@ use foundry_common::{
     shell,
 };
 use foundry_config::Config;
+use foundry_wallets::{WalletSigner, wallet_browser::signer::BrowserSigner};
 use futures::{FutureExt, StreamExt, future::join_all, stream::FuturesUnordered};
 use itertools::Itertools;
 use tempo_alloy::{TempoNetwork, primitives::TempoTxEnvelope, rpc::TempoTransactionRequest};
@@ -62,9 +63,16 @@ pub async fn next_nonce(
 /// Represents how to send a single transaction.
 #[derive(Clone)]
 pub enum SendTransactionKind<'a> {
+<<<<<<< HEAD
     Unlocked(WithOtherFields<TempoTransactionRequest>),
     Raw(WithOtherFields<TempoTransactionRequest>, &'a EthereumWallet),
     Signed(TempoTxEnvelope),
+=======
+    Unlocked(WithOtherFields<TransactionRequest>),
+    Raw(WithOtherFields<TransactionRequest>, &'a EthereumWallet),
+    Browser(WithOtherFields<TransactionRequest>, &'a BrowserSigner),
+    Signed(TxEnvelope),
+>>>>>>> upstream/master
 }
 
 impl<'a> SendTransactionKind<'a> {
@@ -82,7 +90,7 @@ impl<'a> SendTransactionKind<'a> {
         estimate_via_rpc: bool,
         estimate_multiplier: u64,
     ) -> Result<()> {
-        if let Self::Raw(tx, _) | Self::Unlocked(tx) = self {
+        if let Self::Raw(tx, _) | Self::Unlocked(tx) | Self::Browser(tx, _) = self {
             if sequential_broadcast {
                 let from = tx.from.expect("no sender");
 
@@ -130,28 +138,44 @@ impl<'a> SendTransactionKind<'a> {
     /// - Submit via `eth_sendTransaction` for unlocked accounts
     /// - Sign and submit via `eth_sendRawTransaction` for raw transactions
     /// - Submit pre-signed transaction via `eth_sendRawTransaction`
+<<<<<<< HEAD
     pub async fn send(self, provider: Arc<TempoRetryProvider>) -> Result<TxHash> {
         let pending = match self {
+=======
+    pub async fn send(self, provider: Arc<RetryProvider>) -> Result<TxHash> {
+        match self {
+>>>>>>> upstream/master
             Self::Unlocked(tx) => {
                 debug!("sending transaction from unlocked account {:?}", tx);
 
                 // Submit the transaction
+<<<<<<< HEAD
                 provider.send_transaction(tx.inner).await?
+=======
+                let pending = provider.send_transaction(tx).await?;
+                Ok(*pending.tx_hash())
+>>>>>>> upstream/master
             }
             Self::Raw(tx, signer) => {
                 debug!("sending transaction: {:?}", tx);
                 let signed = tx.inner.build(signer).await?;
 
                 // Submit the raw transaction
-                provider.send_raw_transaction(signed.encoded_2718().as_ref()).await?
+                let pending = provider.send_raw_transaction(signed.encoded_2718().as_ref()).await?;
+                Ok(*pending.tx_hash())
             }
             Self::Signed(tx) => {
                 debug!("sending transaction: {:?}", tx);
-                provider.send_raw_transaction(tx.encoded_2718().as_ref()).await?
+                let pending = provider.send_raw_transaction(tx.encoded_2718().as_ref()).await?;
+                Ok(*pending.tx_hash())
             }
-        };
+            Self::Browser(tx, signer) => {
+                debug!("sending transaction: {:?}", tx);
 
-        Ok(*pending.tx_hash())
+                // Sign and send the transaction via the browser wallet
+                Ok(signer.send_transaction_via_browser(tx.into_inner()).await?)
+            }
+        }
     }
 
     /// Prepares and sends the transaction in one operation.
@@ -179,12 +203,40 @@ impl<'a> SendTransactionKind<'a> {
     }
 }
 
+/// Convenience enum to represent either an Ethereum wallet or a browser signer
+pub enum EitherSigner {
+    Ethereum(EthereumWallet),
+    Browser(BrowserSigner),
+}
+
+impl From<EthereumWallet> for EitherSigner {
+    fn from(wallet: EthereumWallet) -> Self {
+        Self::Ethereum(wallet)
+    }
+}
+
+impl From<WalletSigner> for EitherSigner {
+    fn from(wallet: WalletSigner) -> Self {
+        match wallet {
+            WalletSigner::Browser(wallet) => Self::Browser(wallet),
+            // Convert any other signer to an Ethereum wallet
+            signer => EthereumWallet::new(signer).into(),
+        }
+    }
+}
+
+impl From<BrowserSigner> for EitherSigner {
+    fn from(wallet: BrowserSigner) -> Self {
+        Self::Browser(wallet)
+    }
+}
+
 /// Represents how to send _all_ transactions
 pub enum SendTransactionsKind {
     /// Send via `eth_sendTransaction` and rely on the  `from` address being unlocked.
     Unlocked(AddressHashSet),
     /// Send a signed transaction via `eth_sendRawTransaction`
-    Raw(AddressHashMap<EthereumWallet>),
+    Raw(AddressHashMap<EitherSigner>),
 }
 
 impl SendTransactionsKind {
@@ -205,7 +257,12 @@ impl SendTransactionsKind {
             }
             Self::Raw(wallets) => {
                 if let Some(wallet) = wallets.get(addr) {
-                    Ok(SendTransactionKind::Raw(tx, wallet))
+                    match wallet {
+                        EitherSigner::Ethereum(wallet) => Ok(SendTransactionKind::Raw(tx, wallet)),
+                        EitherSigner::Browser(signer) => {
+                            Ok(SendTransactionKind::Browser(tx, signer))
+                        }
+                    }
                 } else {
                     bail!("No matching signer for {:?} found", addr)
                 }
@@ -308,10 +365,7 @@ impl BundledState {
                 );
             }
 
-            let signers = signers
-                .into_iter()
-                .map(|(addr, signer)| (addr, EthereumWallet::new(signer)))
-                .collect();
+            let signers = signers.into_iter().map(|(addr, signer)| (addr, signer.into())).collect();
 
             SendTransactionsKind::Raw(signers)
         };

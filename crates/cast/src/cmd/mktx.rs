@@ -1,9 +1,15 @@
 use crate::tx::{self, CastTxBuilder};
+<<<<<<< HEAD
 
 use crate::tempo::sign_with_access_key;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_ens::NameOrAddress;
 use alloy_network::{EthereumWallet, TransactionBuilder};
+=======
+use alloy_eips::Encodable2718;
+use alloy_ens::NameOrAddress;
+use alloy_network::{EthereumWallet, NetworkWallet, TransactionBuilder};
+>>>>>>> upstream/master
 use alloy_primitives::{Address, hex};
 use alloy_provider::Provider;
 use alloy_signer::Signer;
@@ -160,15 +166,22 @@ impl MakeTxArgs {
             return Ok(());
         }
 
+        let is_tempo = tx_builder.is_tempo();
+
         if ethsign {
             // Use "eth_signTransaction" to sign the transaction only works if the node/RPC has
             // unlocked accounts.
+<<<<<<< HEAD
             let (tx, _) = if let Some(ref opts) = sponsor_opts {
                 tx_builder.build_sponsored(config.sender, fee_token, opts).await?
             } else {
                 tx_builder.build(config.sender, fee_token).await?
             };
             let signed_tx = provider.sign_transaction(tx.inner).await?;
+=======
+            let (tx, _) = tx_builder.build(config.sender).await?;
+            let signed_tx = provider.sign_transaction(tx.into_inner()).await?;
+>>>>>>> upstream/master
 
             sh_println!("{signed_tx}")?;
             return Ok(());
@@ -185,6 +198,7 @@ impl MakeTxArgs {
             Signer::address(&signer)
         };
 
+<<<<<<< HEAD
         // Only validate from address if not using access key
         if access_key_config.is_none() {
             tx::validate_from_address(eth.wallet.from, from)?;
@@ -208,6 +222,31 @@ impl MakeTxArgs {
             let envelope = tx.inner.build(&EthereumWallet::new(signer)).await?;
             hex::encode(envelope.encoded_2718())
         };
+=======
+        // Handle Tempo transactions separately
+        // TODO(onbjerg): All of this is a side effect of a few things, most notably that we do
+        // not use `FoundryNetwork` and `FoundryTransactionRequest` everywhere, which is
+        // downstream of the fact that we use `EthereumWallet` everywhere.
+        if is_tempo {
+            let (ftx, _) = tx_builder.build(&signer).await?;
+
+            // Sign using NetworkWallet<FoundryNetwork>
+            let signed_tx = signer.sign_request(ftx).await?;
+
+            // Encode as 2718
+            let mut raw_tx = Vec::with_capacity(signed_tx.encode_2718_len());
+            signed_tx.encode_2718(&mut raw_tx);
+
+            let signed_tx_hex = hex::encode(&raw_tx);
+            sh_println!("0x{signed_tx_hex}")?;
+
+            return Ok(());
+        }
+
+        let (tx, _) = tx_builder.build(&signer).await?;
+
+        let tx = tx.into_inner().build(&EthereumWallet::new(signer)).await?;
+>>>>>>> upstream/master
 
         sh_println!("0x{signed_tx}")?;
 

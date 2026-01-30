@@ -2501,6 +2501,50 @@ interface Interface {
     ]]);
 });
 
+// tests that `cast interface --flatten` inlines inherited struct types into the interface
+// <https://github.com/foundry-rs/foundry/issues/9960>
+casttest!(interface_flatten, |prj, cmd| {
+    let interface = include_str!("../fixtures/interface_inherited_struct.json");
+
+    let path = prj.root().join("interface_inherited_struct.json");
+    fs::write(&path, interface).unwrap();
+
+    // Without --flatten, a separate library is generated for the struct
+    cmd.arg("interface").arg(&path).assert_success().stdout_eq(str![[
+        r#"// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.4;
+
+library IBase {
+    struct TestStruct {
+        address asset;
+    }
+}
+
+interface Interface {
+    function test(IBase.TestStruct memory param) external;
+}
+
+"#
+    ]]);
+
+    // With --flatten, the struct is inlined into the interface
+    cmd.cast_fuse().arg("interface").arg("--flatten").arg(&path).assert_success().stdout_eq(str![
+        [r#"// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.4;
+
+interface Interface {
+    // Types from `IBase`
+    struct TestStruct {
+        address asset;
+    }
+
+    function test(TestStruct memory param) external;
+}
+
+"#]
+    ]);
+});
+
 // tests that fetches WETH interface from etherscan
 // <https://etherscan.io/token/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2>
 casttest!(flaky_fetch_weth_interface_from_etherscan, |_prj, cmd| {
@@ -4301,6 +4345,7 @@ casttest!(cast_mktx_negative_numbers, |_prj, cmd| {
     .assert_success();
 });
 
+<<<<<<< HEAD
 // Test cast mktx with EIP-7594 blob transaction (default format)
 casttest!(
     #[ignore = "tempo skip - EIP-7594 not supported"]
@@ -4335,6 +4380,70 @@ casttest!(
         .assert_success();
     }
 );
+=======
+// Test cast mktx with EIP-4844 blob transaction (legacy format)
+casttest!(cast_mktx_eip4844_blob, |prj, cmd| {
+    // Create a temporary blob data file
+    let blob_data = b"dummy blob data for testing";
+    let blob_path = prj.root().join("blob_data.bin");
+    fs::write(&blob_path, blob_data).unwrap();
+
+    cmd.args([
+        "mktx",
+        "--private-key",
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "--chain",
+        "1",
+        "--nonce",
+        "0",
+        "--gas-limit",
+        "100000",
+        "--gas-price",
+        "10000000000",
+        "--priority-gas-price",
+        "1000000000",
+        "--blob",
+        "--eip4844",
+        "--blob-gas-price",
+        "1000000",
+        "--path",
+        blob_path.to_str().unwrap(),
+        "0x0000000000000000000000000000000000000001",
+    ])
+    .assert_success();
+});
+
+// Test cast mktx with EIP-7594 blob transaction (default format)
+casttest!(cast_mktx_eip7594_blob, |prj, cmd| {
+    // Create a temporary blob data file
+    let blob_data = b"dummy peerdas blob data for testing";
+    let blob_path = prj.root().join("peerdas_blob_data.bin");
+    fs::write(&blob_path, blob_data).unwrap();
+
+    cmd.args([
+        "mktx",
+        "--private-key",
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "--chain",
+        "1",
+        "--nonce",
+        "0",
+        "--gas-limit",
+        "100000",
+        "--gas-price",
+        "10000000000",
+        "--priority-gas-price",
+        "1000000000",
+        "--blob",
+        "--blob-gas-price",
+        "1000000",
+        "--path",
+        blob_path.to_str().unwrap(),
+        "0x0000000000000000000000000000000000000001",
+    ])
+    .assert_success();
+});
+>>>>>>> upstream/master
 
 // Test cast access-list with negative numbers
 casttest!(cast_access_list_negative_numbers, |_prj, cmd| {
@@ -4638,6 +4747,7 @@ casttest!(cast_call_valid_hex_calldata, |_prj, cmd| {
     .assert_success();
 });
 
+<<<<<<< HEAD
 // https://github.com/foundry-rs/foundry/issues/11584
 // Tests that invalid hex with uppercase 0X prefix also produces clear error
 casttest!(
@@ -4660,3 +4770,140 @@ Error: Invalid hex calldata '0X1': odd number of digits
 "#]]);
     }
 );
+=======
+// tests that the --curl flag outputs a valid curl command for cast rpc
+casttest!(curl_rpc, |_prj, cmd| {
+    let rpc = "https://eth.example.com";
+
+    let output = cmd
+        .args(["rpc", "eth_blockNumber", "--rpc-url", rpc, "--curl"])
+        .assert_success()
+        .get_output()
+        .stdout_lossy();
+
+    // Verify curl command structure
+    assert!(output.contains("curl -X POST"));
+    assert!(output.contains("-H 'Content-Type: application/json'"));
+    assert!(output.contains("eth_blockNumber"));
+    assert!(output.contains("jsonrpc"));
+    assert!(output.contains(rpc));
+});
+
+// tests that the --curl flag outputs a valid curl command for cast block-number
+casttest!(curl_block_number, |_prj, cmd| {
+    let rpc = "https://eth.example.com";
+
+    let output = cmd
+        .args(["block-number", "--rpc-url", rpc, "--curl"])
+        .assert_success()
+        .get_output()
+        .stdout_lossy();
+
+    // Verify curl command structure
+    assert!(output.contains("curl -X POST"));
+    assert!(output.contains("eth_blockNumber"));
+    assert!(output.contains(rpc));
+});
+
+// tests that the --curl flag outputs a valid curl command for cast chain-id
+casttest!(curl_chain_id, |_prj, cmd| {
+    let rpc = "https://eth.example.com";
+
+    let output = cmd
+        .args(["chain-id", "--rpc-url", rpc, "--curl"])
+        .assert_success()
+        .get_output()
+        .stdout_lossy();
+
+    // Verify curl command structure
+    assert!(output.contains("curl -X POST"));
+    assert!(output.contains("eth_chainId"));
+    assert!(output.contains(rpc));
+});
+
+// tests that the --curl flag outputs a valid curl command for cast gas-price
+casttest!(curl_gas_price, |_prj, cmd| {
+    let rpc = "https://eth.example.com";
+
+    let output = cmd
+        .args(["gas-price", "--rpc-url", rpc, "--curl"])
+        .assert_success()
+        .get_output()
+        .stdout_lossy();
+
+    // Verify curl command structure
+    assert!(output.contains("curl -X POST"));
+    assert!(output.contains("eth_gasPrice"));
+    assert!(output.contains(rpc));
+});
+
+// tests that the --curl flag outputs a valid curl command for cast call
+casttest!(curl_call, |_prj, cmd| {
+    let rpc = "https://eth.example.com";
+    let to = "0xdead000000000000000000000000000000000000";
+
+    let output = cmd
+        .args(["call", to, "balanceOf(address)(uint256)", to, "--rpc-url", rpc, "--curl"])
+        .assert_success()
+        .get_output()
+        .stdout_lossy();
+
+    // Verify curl command structure
+    assert!(output.contains("curl -X POST"));
+    assert!(output.contains("eth_call"));
+    assert!(output.contains(rpc));
+});
+
+// https://github.com/foundry-rs/foundry/issues/11584
+// Tests that invalid hex calldata (odd length) produces a clear error message
+casttest!(cast_call_invalid_hex_calldata_error, |_prj, cmd| {
+    let rpc = next_rpc_endpoint(NamedChain::Mainnet);
+    cmd.args([
+        "call",
+        "0xdead000000000000000000000000000000000000",
+        "--data",
+        "0x0", // Invalid: odd length hex
+        "--rpc-url",
+        rpc.as_str(),
+    ])
+    .assert_failure()
+    .stderr_eq(str![[r#"
+Error: Invalid hex calldata '0x0': odd number of digits
+
+"#]]);
+});
+
+// https://github.com/foundry-rs/foundry/issues/11584
+// Tests that valid hex calldata works correctly
+casttest!(cast_call_valid_hex_calldata, |_prj, cmd| {
+    let rpc = next_rpc_endpoint(NamedChain::Mainnet);
+    cmd.args([
+        "call",
+        "0xdead000000000000000000000000000000000000",
+        "--data",
+        "0x00", // Valid: even length hex
+        "--rpc-url",
+        rpc.as_str(),
+    ])
+    .assert_success();
+});
+
+// https://github.com/foundry-rs/foundry/issues/11584
+// Tests that invalid hex with uppercase 0X prefix also produces clear error
+casttest!(cast_call_invalid_hex_uppercase_prefix, |_prj, cmd| {
+    let rpc = next_rpc_endpoint(NamedChain::Mainnet);
+    cmd.args([
+        "call",
+        "0xdead000000000000000000000000000000000000",
+        "--data",
+        "0X1", // Invalid: odd length hex with uppercase prefix
+        "--rpc-url",
+        rpc.as_str(),
+    ])
+    .assert_failure()
+    .stderr_eq(str![[r#"
+Error: Invalid hex calldata '0X1': odd number of digits
+
+"#]]);
+});
+>>>>>>> upstream/master

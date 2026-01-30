@@ -49,6 +49,7 @@ pub struct InvariantConfig {
     ///
     /// Example: `check_interval = 10` means assert after calls 10, 20, 30, ... and the last call.
     pub check_interval: u32,
+<<<<<<< HEAD
     /// Replay original corpus sequences before mutation-based fuzzing.
     /// When enabled, each loaded corpus entry is executed exactly as stored
     /// before the normal fuzzing loop begins.
@@ -56,6 +57,8 @@ pub struct InvariantConfig {
     /// Only replay corpus sequences, skip mutation-based fuzzing entirely.
     /// Useful for regression testing against a known corpus.
     pub corpus_replay_only: bool,
+=======
+>>>>>>> upstream/master
 }
 
 impl Default for InvariantConfig {
@@ -77,8 +80,11 @@ impl Default for InvariantConfig {
             max_time_delay: None,
             max_block_delay: None,
             check_interval: 1,
+<<<<<<< HEAD
             replay_corpus_first: false,
             corpus_replay_only: false,
+=======
+>>>>>>> upstream/master
         }
     }
 }

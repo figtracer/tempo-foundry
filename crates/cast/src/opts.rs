@@ -1,11 +1,19 @@
 use crate::cmd::{
     access_list::AccessListArgs, artifact::ArtifactArgs, b2e_payload::B2EPayloadArgs,
+<<<<<<< HEAD
     batch_mktx::BatchMakeTxArgs, batch_send::BatchSendArgs, bind::BindArgs, call::CallArgs,
     constructor_args::ConstructorArgsArgs, create2::Create2Args, creation_code::CreationCodeArgs,
     da_estimate::DAEstimateArgs, erc20::Erc20Subcommand, estimate::EstimateArgs,
     find_block::FindBlockArgs, interface::InterfaceArgs, logs::LogsArgs, mktx::MakeTxArgs,
     rpc::RpcArgs, run::RunArgs, send::SendTxArgs, storage::StorageArgs, txpool::TxPoolSubcommands,
     wallet::WalletSubcommands,
+=======
+    bind::BindArgs, call::CallArgs, constructor_args::ConstructorArgsArgs, create2::Create2Args,
+    creation_code::CreationCodeArgs, da_estimate::DAEstimateArgs, erc20::Erc20Subcommand,
+    estimate::EstimateArgs, find_block::FindBlockArgs, interface::InterfaceArgs, logs::LogsArgs,
+    mktx::MakeTxArgs, rpc::RpcArgs, run::RunArgs, send::SendTxArgs, storage::StorageArgs,
+    trace::TraceArgs, txpool::TxPoolSubcommands, wallet::WalletSubcommands,
+>>>>>>> upstream/master
 };
 use alloy_ens::NameOrAddress;
 use alloy_primitives::{Address, B256, Selector, U256};
@@ -1159,6 +1167,8 @@ pub enum CastSubcommand {
         #[command(subcommand)]
         command: Erc20Subcommand,
     },
+    #[command(name = "trace")]
+    Trace(TraceArgs),
 }
 
 /// CLI arguments for `cast --to-base`.

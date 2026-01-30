@@ -4682,26 +4682,22 @@ Transaction successfully executed.
 
 // https://github.com/foundry-rs/foundry/issues/11584
 // Tests that invalid hex calldata (odd length) produces a clear error message
-casttest!(
-    #[ignore = "tempo skip - mainnet RPC"]
-    cast_call_invalid_hex_calldata_error,
-    |_prj, cmd| {
-        let rpc = next_rpc_endpoint(NamedChain::Mainnet);
-        cmd.args([
-            "call",
-            "0xdead000000000000000000000000000000000000",
-            "--data",
-            "0x0", // Invalid: odd length hex
-            "--rpc-url",
-            rpc.as_str(),
-        ])
-        .assert_failure()
-        .stderr_eq(str![[r#"
+casttest!(cast_call_invalid_hex_calldata_error, |_prj, cmd| {
+    let rpc = next_rpc_endpoint(NamedChain::Mainnet);
+    cmd.args([
+        "call",
+        "0xdead000000000000000000000000000000000000",
+        "--data",
+        "0x0", // Invalid: odd length hex
+        "--rpc-url",
+        rpc.as_str(),
+    ])
+    .assert_failure()
+    .stderr_eq(str![[r#"
 Error: Invalid hex calldata '0x0': odd number of digits
 
 "#]]);
-    }
-);
+});
 
 // https://github.com/foundry-rs/foundry/issues/11584
 // Tests that valid hex calldata works correctly
@@ -4800,5 +4796,3 @@ casttest!(curl_call, |_prj, cmd| {
     assert!(output.contains("eth_call"));
     assert!(output.contains(rpc));
 });
-
-

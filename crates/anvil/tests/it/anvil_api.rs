@@ -22,7 +22,6 @@ use anvil_core::{
     types::{ReorgOptions, TransactionData},
 };
 use foundry_evm::hardforks::EthereumHardfork;
-use revm::primitives::hardfork::SpecId;
 use std::{
     str::FromStr,
     time::{Duration, SystemTime},
@@ -440,13 +439,12 @@ async fn can_get_node_info() {
 
     let block_number = provider.get_block_number().await.unwrap();
     let block = provider.get_block(BlockId::from(block_number)).await.unwrap().unwrap();
-    let hard_fork: &str = SpecId::OSAKA.into();
 
     let expected_node_info = NodeInfo {
         current_block_number: 0_u64,
         current_block_timestamp: 1,
         current_block_hash: block.header.hash,
-        hard_fork: hard_fork.to_string(),
+        hard_fork: "T0".to_string(),
         transaction_order: "fees".to_owned(),
         environment: NodeEnvironment {
             base_fee: U256::from_str("0x3b9aca00").unwrap().to(),

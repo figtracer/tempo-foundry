@@ -6,7 +6,7 @@ use alloy_primitives::{Address, B256, Signature, map::AddressHashMap};
 use alloy_signer::Signer as AlloySigner;
 use alloy_signer_local::PrivateKeySigner;
 use foundry_primitives::{FoundryTxEnvelope, FoundryTypedTx};
-use tempo_primitives::{AASigned, TempoSignature, transaction::PrimitiveSignature};
+use tempo_primitives::TempoSignature;
 
 /// A transaction signer
 #[async_trait::async_trait]

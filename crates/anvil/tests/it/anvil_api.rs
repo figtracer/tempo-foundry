@@ -22,6 +22,7 @@ use anvil_core::{
     types::{ReorgOptions, TransactionData},
 };
 use foundry_evm::hardforks::EthereumHardfork;
+use revm::primitives::hardfork::SpecId;
 use std::{
     str::FromStr,
     time::{Duration, SystemTime},

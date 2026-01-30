@@ -16,10 +16,11 @@ use clap::Args;
 use eyre::{Result, WrapErr};
 use foundry_cli::{
     opts::{CliAuthorizationList, EthereumOpts, TransactionOpts},
-    utils::{self, LoadConfig, parse_fee_token_address, parse_function_args},
+    utils::{self, LoadConfig, get_tempo_provider_builder, parse_fee_token_address, parse_function_args},
 };
 use foundry_common::{
-    TransactionReceiptWithRevertReason, fmt::*, get_pretty_tx_receipt_attr, shell,
+    TransactionReceiptWithRevertReason, fmt::*, get_pretty_tx_receipt_attr,
+    provider::tempo::TempoRetryProviderWithSigner, shell,
 };
 use foundry_config::{Chain, Config};
 use foundry_primitives::{FoundryTransactionRequest, FoundryTypedTx};
@@ -697,7 +698,7 @@ pub(crate) async fn decode_execution_revert(data: &RawValue) -> Result<Option<St
 pub(crate) async fn signing_provider_with_curl(
     tx_opts: &SendTxOpts,
     curl_mode: bool,
-) -> eyre::Result<RetryProviderWithSigner> {
+) -> eyre::Result<TempoRetryProviderWithSigner> {
     let config = tx_opts.eth.load_config()?;
     let signer = tx_opts.eth.wallet.signer().await?;
     let wallet = alloy_network::EthereumWallet::from(signer);

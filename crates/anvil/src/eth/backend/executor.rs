@@ -513,7 +513,7 @@ where
                 .cfg_env
                 .clone()
                 .with_spec_and_mainnet_gas_params(op_revm::OpSpecId::ISTHMUS),
-            env.evm_env.block_env.clone(),
+            env.evm_env.block_env.inner.clone(),
         );
         EitherEvm::Op(OpEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
     } else if env.networks.is_tempo() {

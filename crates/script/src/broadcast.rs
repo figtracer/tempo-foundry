@@ -138,7 +138,7 @@ impl<'a> SendTransactionKind<'a> {
                 debug!("sending transaction from unlocked account {:?}", tx);
 
                 // Submit the transaction
-                let pending = provider.send_transaction(tx).await?;
+                let pending = provider.send_transaction(tx.into_inner()).await?;
                 Ok(*pending.tx_hash())
             }
             Self::Raw(tx, signer) => {
@@ -158,9 +158,11 @@ impl<'a> SendTransactionKind<'a> {
                 debug!("sending transaction: {:?}", tx);
 
                 // Sign and send the transaction via the browser wallet
-                Ok(signer.send_transaction_via_browser(tx.into_inner()).await?)
+                // Convert TempoTransactionRequest to TransactionRequest for browser wallet
+                Ok(signer.send_transaction_via_browser(tx.into_inner().into()).await?)
             }
-        }
+        };
+        pending
     }
 
     /// Prepares and sends the transaction in one operation.

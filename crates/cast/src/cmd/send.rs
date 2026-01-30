@@ -4,16 +4,15 @@ use crate::{
     tempo::sign_with_access_key,
     tx::{self, CastTxBuilder, CastTxSender, SendTxOpts},
 };
-use alloy_eips::Encodable2718;
 use alloy_ens::NameOrAddress;
-use alloy_network::{AnyNetwork, EthereumWallet, NetworkWallet};
+use alloy_network::EthereumWallet;
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_signer::Signer;
 use clap::Parser;
 use eyre::{Result, eyre};
 use foundry_cli::{
     opts::TransactionOpts,
-    utils::{LoadConfig, get_provider_with_curl, get_tempo_provider},
+    utils::{LoadConfig, get_tempo_provider_with_curl},
 };
 use foundry_wallets::WalletSigner;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};

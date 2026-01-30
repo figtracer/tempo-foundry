@@ -81,6 +81,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequ
             tx,
             legacy,
             blob: tx_opts.blob,
+            eip4844: tx_opts.eip4844,
             chain,
             etherscan_api_key,
             auth: tx_opts.auth,
@@ -100,6 +101,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequ
             tx: self.tx,
             legacy: self.legacy,
             blob: self.blob,
+            eip4844: self.eip4844,
             chain: self.chain,
             etherscan_api_key: self.etherscan_api_key,
             auth: self.auth,
@@ -156,6 +158,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, ToState, TempoTransactionReques
             tx: self.tx,
             legacy: self.legacy,
             blob: self.blob,
+            eip4844: self.eip4844,
             chain: self.chain,
             etherscan_api_key: self.etherscan_api_key,
             auth: self.auth,
@@ -216,6 +219,12 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
             TempoTypedTransaction::Eip7702(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
             TempoTypedTransaction::AA(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
         }
+    }
+
+    /// Returns whether this builder will produce a Tempo transaction.
+    /// For TempoTransactionRequest, this always returns true.
+    pub fn is_tempo(&self) -> bool {
+        true
     }
 
     async fn _build(

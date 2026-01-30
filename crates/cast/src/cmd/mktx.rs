@@ -1,9 +1,9 @@
 use crate::tx::{self, CastTxBuilder};
 
 use crate::tempo::sign_with_access_key;
-use alloy_eips::{Encodable2718, eip2718::Encodable2718};
+use alloy_eips::Encodable2718;
 use alloy_ens::NameOrAddress;
-use alloy_network::{EthereumWallet, NetworkWallet, TransactionBuilder};
+use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{Address, hex};
 use alloy_provider::Provider;
 use alloy_signer::Signer;
@@ -159,8 +159,6 @@ impl MakeTxArgs {
             sh_println!("{raw_tx}")?;
             return Ok(());
         }
-
-        let is_tempo = tx_builder.is_tempo();
 
         if ethsign {
             // Use "eth_signTransaction" to sign the transaction only works if the node/RPC has

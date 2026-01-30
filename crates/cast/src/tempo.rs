@@ -173,7 +173,20 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         sender: impl Into<SenderKind<'_>>,
         fee_token: Option<Address>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
-        self._build(sender, true, false, fee_token).await
+        self._build(sender, true, false, fee_token, None).await
+    }
+
+    /// Builds [TempoTransactionRequest] with sponsor signature for gasless transactions.
+    ///
+    /// The sponsor signs the `fee_payer_signature_hash` to commit to paying gas fees
+    /// for the transaction on behalf of the sender.
+    pub async fn build_sponsored(
+        self,
+        sender: impl Into<SenderKind<'_>>,
+        fee_token: Option<Address>,
+        tx_opts: &TransactionOpts,
+    ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
+        self._build(sender, true, false, fee_token, Some(tx_opts)).await
     }
 
     /// Builds [TempoTransactionRequest] without filling missing fields. Used for read-only calls
@@ -183,7 +196,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         sender: impl Into<SenderKind<'_>>,
         fee_token: Option<Address>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
-        self._build(sender, false, false, fee_token).await
+        self._build(sender, false, false, fee_token, None).await
     }
 
     /// Builds an unsigned RLP-encoded raw transaction.
@@ -194,7 +207,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         from: Address,
         fee_token: Option<Address>,
     ) -> Result<String> {
-        let (tx, _) = self._build(SenderKind::Address(from), true, true, fee_token).await?;
+        let (tx, _) = self._build(SenderKind::Address(from), true, true, fee_token, None).await?;
         let tx = tx.inner.build_unsigned()?;
         match tx {
             TempoTypedTransaction::Legacy(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
@@ -211,6 +224,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         fill: bool,
         unsigned: bool,
         fee_token: Option<Address>,
+        tx_opts: Option<&TransactionOpts>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
         let sender = sender.into();
         let from = sender.address();
@@ -297,6 +311,37 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
 
         if self.tx.inner.inner.gas.is_none() {
             self.estimate_gas().await?;
+        }
+
+        // Handle sponsored transactions: compute and set fee_payer_signature
+        if let Some(opts) = tx_opts
+            && (opts.sponsor.is_sponsor() || opts.sponsor.should_print_hash())
+        {
+            // Force AA transaction type by setting nonce_key if not already set.
+            // This is needed because output_tx_type() doesn't check fee_payer_signature,
+            // so without this the transaction would be built as EIP-1559 instead of AA.
+            if self.tx.inner.nonce_key.is_none() {
+                self.tx.inner.nonce_key = Some(alloy_primitives::U256::ZERO);
+            }
+
+            // Build a temporary TempoTransaction to compute the fee_payer_signature_hash
+            let tempo_tx = self.tx.inner.clone().build_aa().map_err(|e| {
+                eyre!("Failed to build AA transaction for sponsor signature: {:?}", e)
+            })?;
+
+            // Compute the fee payer signature hash (commits to sender address)
+            let fee_payer_hash = tempo_tx.fee_payer_signature_hash(from);
+
+            // If print-sponsor-hash mode, output the hash and return early
+            if opts.sponsor.should_print_hash() {
+                sh_println!("{:?}", fee_payer_hash)?;
+                std::process::exit(0);
+            }
+
+            // Get sponsor signature from provided signature
+            if let Some(sponsor_sig) = opts.sponsor.get_signature()? {
+                self.tx.inner.set_fee_payer_signature(sponsor_sig);
+            }
         }
 
         Ok((self.tx, self.state.func))

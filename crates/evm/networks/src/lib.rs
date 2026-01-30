@@ -57,10 +57,10 @@ impl NetworkConfigs {
         self.optimism
     }
 
-<<<<<<< HEAD
     pub fn is_tempo(&self) -> bool {
         self.tempo
-=======
+    }
+
     /// Returns the base fee parameters for the configured network.
     ///
     /// For Optimism networks, returns Canyon parameters if the Canyon hardfork is active
@@ -76,7 +76,6 @@ impl NetworkConfigs {
         } else {
             BaseFeeParams::ethereum()
         }
->>>>>>> upstream/master
     }
 
     pub fn bypass_prevrandao(&self, chain_id: u64) -> bool {

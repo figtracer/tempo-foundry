@@ -50,12 +50,8 @@ allow_paths = []
 include_paths = []
 skip = []
 force = false
-<<<<<<< HEAD
-evm_version = "prague"
-hardfork = "tempo:T0"
-=======
 evm_version = "osaka"
->>>>>>> upstream/master
+hardfork = "tempo:T0"
 gas_reports = ["*"]
 gas_reports_ignore = []
 gas_reports_include_tests = false
@@ -213,11 +209,8 @@ failure_persist_dir = "cache/invariant"
 show_metrics = true
 show_solidity = false
 check_interval = 1
-<<<<<<< HEAD
 replay_corpus_first = false
 corpus_replay_only = false
-=======
->>>>>>> upstream/master
 
 [labels]
 
@@ -1214,12 +1207,8 @@ forgetest_init!(test_default_config, |prj, cmd| {
   "include_paths": [],
   "skip": [],
   "force": false,
-<<<<<<< HEAD
-  "evm_version": "prague",
-  "hardfork": "tempo:T0",
-=======
   "evm_version": "osaka",
->>>>>>> upstream/master
+  "hardfork": "tempo:T0",
   "gas_reports": [
     "*"
   ],
@@ -1306,13 +1295,9 @@ forgetest_init!(test_default_config, |prj, cmd| {
     "show_solidity": false,
     "max_time_delay": null,
     "max_block_delay": null,
-<<<<<<< HEAD
     "check_interval": 1,
     "replay_corpus_first": false,
     "corpus_replay_only": false
-=======
-    "check_interval": 1
->>>>>>> upstream/master
   },
   "ffi": false,
   "allow_internal_expect_revert": false,

@@ -1,10 +1,7 @@
 //! Support for forking off another client
 
 use crate::eth::{backend::db::Db, error::BlockchainError, pool::transactions::PoolTransaction};
-<<<<<<< HEAD
-=======
 use alloy_consensus::TrieAccount;
->>>>>>> upstream/master
 use alloy_eips::eip2930::AccessListResult;
 use alloy_network::{AnyRpcBlock, AnyRpcTransaction, BlockResponse, TransactionResponse};
 use alloy_primitives::{

@@ -7,10 +7,7 @@ use std::{
 };
 
 use alloy_consensus::{BlockBody, Header};
-<<<<<<< HEAD
-=======
 use alloy_eips::eip4895::Withdrawals;
->>>>>>> upstream/master
 use alloy_primitives::{
     Address, B256, Bytes, U256, keccak256,
     map::{AddressMap, HashMap},

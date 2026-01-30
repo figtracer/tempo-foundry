@@ -135,219 +135,6 @@ async fn test_verify_bytecode_with_ignore(
     }
 }
 
-<<<<<<< HEAD
-forgetest_async!(
-    #[ignore = "tempo skip - etherscan API"]
-    verify_bytecode_no_metadata,
-    |prj, cmd| {
-        test_verify_bytecode(
-            prj,
-            cmd,
-            "0xba2492e52F45651B60B8B38d4Ea5E2390C64Ffb1",
-            "SystemConfig",
-            None,
-            Config {
-                evm_version: EvmVersion::London,
-                optimizer_runs: Some(999999),
-                optimizer: Some(true),
-                cbor_metadata: false,
-                bytecode_hash: BytecodeHash::None,
-                ..Default::default()
-            },
-            "etherscan",
-            "https://api.etherscan.io/v2/api?chainid=1",
-            ("partial", "partial"),
-            Chain::mainnet(),
-        )
-        .await;
-    }
-);
-
-forgetest_async!(
-    #[ignore = "tempo skip - etherscan API"]
-    verify_bytecode_with_metadata,
-    |prj, cmd| {
-        test_verify_bytecode(
-            prj,
-            cmd,
-            "0xb8901acb165ed027e32754e0ffe830802919727f",
-            "L1_ETH_Bridge",
-            None,
-            Config {
-                evm_version: EvmVersion::Paris,
-                optimizer_runs: Some(50000),
-                optimizer: Some(true),
-                ..Default::default()
-            },
-            "etherscan",
-            "https://api.etherscan.io/v2/api?chainid=1",
-            ("partial", "partial"),
-            Chain::mainnet(),
-        )
-        .await;
-    }
-);
-
-// Test non-CREATE2 deployed contract with blockscout
-forgetest_async!(
-    #[ignore = "tempo skip - blockscout API"]
-    verify_bytecode_with_blockscout,
-    |prj, cmd| {
-        test_verify_bytecode(
-            prj,
-            cmd,
-            "0x70f44C13944d49a236E3cD7a94f48f5daB6C619b",
-            "StrategyManager",
-            None,
-            Config {
-                evm_version: EvmVersion::London,
-                optimizer: Some(true),
-                optimizer_runs: Some(200),
-                ..Default::default()
-            },
-            "blockscout",
-            "https://eth.blockscout.com/api",
-            ("partial", "partial"),
-            Chain::mainnet(),
-        )
-        .await;
-    }
-);
-
-// Test CREATE2 deployed contract with blockscout
-forgetest_async!(
-    #[ignore = "tempo skip - blockscout API"]
-    verify_bytecode_create2_with_blockscout,
-    |prj, cmd| {
-        test_verify_bytecode(
-            prj,
-            cmd,
-            "0xba2492e52F45651B60B8B38d4Ea5E2390C64Ffb1",
-            "SystemConfig",
-            None,
-            Config {
-                evm_version: EvmVersion::London,
-                optimizer_runs: Some(999999),
-                optimizer: Some(true),
-                cbor_metadata: false,
-                bytecode_hash: BytecodeHash::None,
-                ..Default::default()
-            },
-            "blockscout",
-            "https://eth.blockscout.com/api",
-            ("partial", "partial"),
-            Chain::mainnet(),
-        )
-        .await;
-    }
-);
-
-// Test `--constructor-args`
-forgetest_async!(
-    #[ignore = "tempo skip - etherscan API"]
-    verify_bytecode_with_constructor_args,
-    |prj, cmd| {
-        let constructor_args = vec![
-            "0x39053D51B77DC0d36036Fc1fCc8Cb819df8Ef37A",
-            "0x91E677b07F7AF907ec9a428aafA9fc14a0d3A338",
-            "0xD92145c07f8Ed1D392c1B88017934E301CC1c3Cd",
-        ];
-        test_verify_bytecode(
-            prj,
-            cmd,
-            "0x70f44C13944d49a236E3cD7a94f48f5daB6C619b",
-            "StrategyManager",
-            Some(constructor_args),
-            Config {
-                evm_version: EvmVersion::London,
-                optimizer: Some(true),
-                optimizer_runs: Some(200),
-                ..Default::default()
-            },
-            "etherscan",
-            "https://api.etherscan.io/v2/api?chainid=1",
-            ("partial", "partial"),
-            Chain::mainnet(),
-        )
-        .await;
-    }
-);
-
-// `--ignore` tests
-forgetest_async!(
-    #[ignore = "tempo skip - etherscan API"]
-    verify_bytecode_can_ignore_creation,
-    |prj, cmd| {
-        test_verify_bytecode_with_ignore(
-            prj,
-            cmd,
-            "0xba2492e52F45651B60B8B38d4Ea5E2390C64Ffb1",
-            "SystemConfig",
-            Config {
-                evm_version: EvmVersion::London,
-                optimizer_runs: Some(999999),
-                optimizer: Some(true),
-                cbor_metadata: false,
-                bytecode_hash: BytecodeHash::None,
-                ..Default::default()
-            },
-            "etherscan",
-            "https://api.etherscan.io/v2/api?chainid=1",
-            ("ignored", "partial"),
-            "creation",
-            Chain::mainnet(),
-        )
-        .await;
-    }
-);
-
-forgetest_async!(
-    #[ignore = "tempo skip - etherscan API"]
-    verify_bytecode_can_ignore_runtime,
-    |prj, cmd| {
-        test_verify_bytecode_with_ignore(
-            prj,
-            cmd,
-            "0xba2492e52F45651B60B8B38d4Ea5E2390C64Ffb1",
-            "SystemConfig",
-            Config {
-                evm_version: EvmVersion::London,
-                optimizer_runs: Some(999999),
-                optimizer: Some(true),
-                cbor_metadata: false,
-                bytecode_hash: BytecodeHash::None,
-                ..Default::default()
-            },
-            "etherscan",
-            "https://api.etherscan.io/v2/api?chainid=1",
-            ("partial", "ignored"),
-            "runtime",
-            Chain::mainnet(),
-        )
-        .await;
-    }
-);
-
-// Test that verification fails when source code doesn't match deployed bytecode
-forgetest_async!(
-    #[ignore = "tempo skip - etherscan API"]
-    can_verify_bytecode_fails_on_source_mismatch,
-    |prj, cmd| {
-        let etherscan_key = next_etherscan_api_key();
-        let rpc_url = next_http_archive_rpc_url();
-
-        // Fetch real source code using the library directly
-        let real_source = fetch_etherscan_source_flattened(
-            "0xba2492e52F45651B60B8B38d4Ea5E2390C64Ffb1",
-            &etherscan_key,
-            Chain::mainnet(),
-        )
-        .await
-        .expect("failed to fetch source code from etherscan");
-
-        prj.add_source("SystemConfig", &real_source);
-        prj.write_config(Config {
-=======
 forgetest_async!(flaky_verify_bytecode_no_metadata, |prj, cmd| {
     test_verify_bytecode(
         prj,
@@ -356,7 +143,6 @@ forgetest_async!(flaky_verify_bytecode_no_metadata, |prj, cmd| {
         "SystemConfig",
         None,
         Config {
->>>>>>> upstream/master
             evm_version: EvmVersion::London,
             optimizer_runs: Some(999999),
             optimizer: Some(true),
@@ -549,25 +335,6 @@ forgetest_async!(flaky_can_verify_bytecode_fails_on_source_mismatch, |prj, cmd| 
     }
     "#;
 
-<<<<<<< HEAD
-        // Now replace with different incorrect source code
-        prj.add_source("SystemConfig", source_code);
-        let etherscan_key = next_etherscan_api_key();
-        let args = vec![
-            "verify-bytecode",
-            "0xba2492e52F45651B60B8B38d4Ea5E2390C64Ffb1",
-            "SystemConfig",
-            "--etherscan-api-key",
-            &etherscan_key,
-            "--verifier",
-            "etherscan",
-            "--verifier-url",
-            "https://api.etherscan.io/v2/api?chainid=1",
-            "--rpc-url",
-            &rpc_url,
-        ];
-        let output = cmd.forge_fuse().args(args).assert_success().get_output().stderr_lossy();
-=======
     // Now replace with different incorrect source code
     prj.add_source("SystemConfig", source_code);
     let etherscan_key = next_etherscan_api_key();
@@ -585,7 +352,6 @@ forgetest_async!(flaky_can_verify_bytecode_fails_on_source_mismatch, |prj, cmd| 
         &rpc_url,
     ];
     let output = cmd.forge_fuse().args(args).assert_success().get_output().stderr_lossy();
->>>>>>> upstream/master
 
     // Verify that bytecode does NOT match (recompiled with incorrect source)
     assert!(output.contains("Error: Creation code did not match".to_string().as_str()));

@@ -1743,11 +1743,8 @@ Ran 1 test for test/HandlerWarpAndRoll.t.sol:HandlerWarpAndRoll
 ...
 
 "#]]);
-<<<<<<< HEAD
     }
 );
-=======
-});
 
 // Test that state is preserved across calls during invariant replay.
 // Regression test for commit 0584a581b which changed replay_run to use execute_tx
@@ -1982,4 +1979,3 @@ contract InvariantOptimizeWarpTest is Test {
 ...
 "#]]);
 });
->>>>>>> upstream/master

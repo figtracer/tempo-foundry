@@ -189,7 +189,14 @@ impl CallTraceDecoder {
                 (EC_PAIRING, "ECPairing".to_string()),
                 (BLAKE_2F, "Blake2F".to_string()),
                 (POINT_EVALUATION, "PointEvaluation".to_string()),
-<<<<<<< HEAD
+                (BLS12_G1ADD, "BLS12_G1ADD".to_string()),
+                (BLS12_G1MSM, "BLS12_G1MSM".to_string()),
+                (BLS12_G2ADD, "BLS12_G2ADD".to_string()),
+                (BLS12_G2MSM, "BLS12_G2MSM".to_string()),
+                (BLS12_PAIRING_CHECK, "BLS12_PAIRING_CHECK".to_string()),
+                (BLS12_MAP_FP_TO_G1, "BLS12_MAP_FP_TO_G1".to_string()),
+                (BLS12_MAP_FP2_TO_G2, "BLS12_MAP_FP2_TO_G2".to_string()),
+                (P256_VERIFY, "P256VERIFY".to_string()),
                 // Tempo
                 (TIP_FEE_MANAGER_ADDRESS, "FeeManager".to_string()),
                 (TIP403_REGISTRY_ADDRESS, "TIP403Registry".to_string()),
@@ -199,16 +206,6 @@ impl CallTraceDecoder {
                 (VALIDATOR_CONFIG_ADDRESS, "ValidatorConfig".to_string()),
                 (ACCOUNT_KEYCHAIN_ADDRESS, "AccountKeychain".to_string()),
                 (PATH_USD_ADDRESS, "PathUSD".to_string()),
-=======
-                (BLS12_G1ADD, "BLS12_G1ADD".to_string()),
-                (BLS12_G1MSM, "BLS12_G1MSM".to_string()),
-                (BLS12_G2ADD, "BLS12_G2ADD".to_string()),
-                (BLS12_G2MSM, "BLS12_G2MSM".to_string()),
-                (BLS12_PAIRING_CHECK, "BLS12_PAIRING_CHECK".to_string()),
-                (BLS12_MAP_FP_TO_G1, "BLS12_MAP_FP_TO_G1".to_string()),
-                (BLS12_MAP_FP2_TO_G2, "BLS12_MAP_FP2_TO_G2".to_string()),
-                (P256_VERIFY, "P256VERIFY".to_string()),
->>>>>>> upstream/master
             ]),
             receive_contracts: Default::default(),
             fallback_contracts: Default::default(),

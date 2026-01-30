@@ -29,11 +29,7 @@ use crate::{
     filter::{EthFilter, Filters, LogsFilter},
     mem::transaction_build,
 };
-<<<<<<< HEAD
-use alloy_consensus::{Blob, Transaction, TxEip4844Variant, transaction::Recovered};
-=======
 use alloy_consensus::{Blob, Transaction, TrieAccount, TxEip4844Variant, transaction::Recovered};
->>>>>>> upstream/master
 use alloy_dyn_abi::TypedData;
 use alloy_eips::{
     eip2718::Encodable2718,

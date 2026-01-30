@@ -3334,22 +3334,11 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 "#]]);
 });
 
-<<<<<<< HEAD
-forgetest_async!(
-    #[ignore = "tempo skip - uses native ETH value transfer which Tempo does not support"]
-    flaky_can_deploy_with_broadcast_in_setup,
-    |prj, cmd| {
-        foundry_test_utils::util::initialize(prj.root());
-        prj.add_script(
-            "Deploy.s.sol",
-            r#"
-=======
 forgetest_async!(flaky_can_deploy_with_broadcast_in_setup, |prj, cmd| {
     foundry_test_utils::util::initialize(prj.root());
     prj.add_script(
         "Deploy.s.sol",
         r#"
->>>>>>> upstream/master
 import "forge-std/Script.sol";
 import {Vm} from "forge-std/Vm.sol";
 contract DeployScript is Script {
@@ -3364,23 +3353,23 @@ contract DeployScript is Script {
     }
 }
    "#,
-        );
+    );
 
-        let node_config = NodeConfig::test().with_hardfork(Some(EthereumHardfork::Prague.into()));
-        let (_api, handle) = spawn(node_config).await;
+    let node_config = NodeConfig::test().with_hardfork(Some(EthereumHardfork::Prague.into()));
+    let (_api, handle) = spawn(node_config).await;
 
-        cmd.args([
-            "script",
-            "script/Deploy.s.sol:DeployScript",
-            "--rpc-url",
-            &handle.http_endpoint(),
-            "-vvvv",
-            "--broadcast",
-            "--private-key",
-            "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        ])
-        .assert_success()
-        .stdout_eq(str![[r#"
+    cmd.args([
+        "script",
+        "script/Deploy.s.sol:DeployScript",
+        "--rpc-url",
+        &handle.http_endpoint(),
+        "-vvvv",
+        "--broadcast",
+        "--private-key",
+        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    ])
+    .assert_success()
+    .stdout_eq(str![[r#"
 [COMPILING_FILES] with [SOLC_VERSION]
 [SOLC_VERSION] [ELAPSED]
 Compiler run successful!
@@ -3426,8 +3415,7 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
 
 "#]]);
-    }
-);
+});
 
 // <https://github.com/foundry-rs/foundry/issues/12151>
 forgetest_async!(

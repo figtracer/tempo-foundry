@@ -6,11 +6,7 @@ use alloy_primitives::{Address, B256, Signature, map::AddressHashMap};
 use alloy_signer::Signer as AlloySigner;
 use alloy_signer_local::PrivateKeySigner;
 use foundry_primitives::{FoundryTxEnvelope, FoundryTypedTx};
-<<<<<<< HEAD
 use tempo_primitives::{AASigned, TempoSignature, transaction::PrimitiveSignature};
-=======
-use tempo_primitives::TempoSignature;
->>>>>>> upstream/master
 
 /// A transaction signer
 #[async_trait::async_trait]
@@ -133,14 +129,8 @@ pub fn build_typed_transaction(
         FoundryTypedTx::Eip4844(tx) => FoundryTxEnvelope::Eip4844(tx.into_signed(signature)),
         FoundryTypedTx::Deposit(tx) => FoundryTxEnvelope::Deposit(Sealed::new(tx)),
         FoundryTypedTx::Tempo(tx) => {
-<<<<<<< HEAD
-            // Wrap the alloy Signature in Tempo's signature types
-            let tempo_sig = TempoSignature::Primitive(PrimitiveSignature::Secp256k1(signature));
-            FoundryTxEnvelope::Tempo(AASigned::new_unhashed(tx, tempo_sig))
-=======
             let tempo_sig: TempoSignature = signature.into();
             FoundryTxEnvelope::Tempo(tx.into_signed(tempo_sig))
->>>>>>> upstream/master
         }
     };
 

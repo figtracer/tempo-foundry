@@ -1930,7 +1930,7 @@ casttest!(mktx_raw_unsigned_no_from_missing_nonce, |_prj, cmd| {
 });
 
 casttest!(mktx_ethsign, async |_prj, cmd| {
-    let (_api, handle) = anvil::spawn(NodeConfig::test()).await;
+    let (_api, handle) = anvil::spawn(NodeConfig::test_tempo()).await;
     let rpc = handle.http_endpoint();
     cmd.args([
         "mktx",

@@ -63,16 +63,10 @@ pub async fn next_nonce(
 /// Represents how to send a single transaction.
 #[derive(Clone)]
 pub enum SendTransactionKind<'a> {
-<<<<<<< HEAD
     Unlocked(WithOtherFields<TempoTransactionRequest>),
     Raw(WithOtherFields<TempoTransactionRequest>, &'a EthereumWallet),
+    Browser(WithOtherFields<TempoTransactionRequest>, &'a BrowserSigner),
     Signed(TempoTxEnvelope),
-=======
-    Unlocked(WithOtherFields<TransactionRequest>),
-    Raw(WithOtherFields<TransactionRequest>, &'a EthereumWallet),
-    Browser(WithOtherFields<TransactionRequest>, &'a BrowserSigner),
-    Signed(TxEnvelope),
->>>>>>> upstream/master
 }
 
 impl<'a> SendTransactionKind<'a> {
@@ -138,23 +132,14 @@ impl<'a> SendTransactionKind<'a> {
     /// - Submit via `eth_sendTransaction` for unlocked accounts
     /// - Sign and submit via `eth_sendRawTransaction` for raw transactions
     /// - Submit pre-signed transaction via `eth_sendRawTransaction`
-<<<<<<< HEAD
     pub async fn send(self, provider: Arc<TempoRetryProvider>) -> Result<TxHash> {
         let pending = match self {
-=======
-    pub async fn send(self, provider: Arc<RetryProvider>) -> Result<TxHash> {
-        match self {
->>>>>>> upstream/master
             Self::Unlocked(tx) => {
                 debug!("sending transaction from unlocked account {:?}", tx);
 
                 // Submit the transaction
-<<<<<<< HEAD
-                provider.send_transaction(tx.inner).await?
-=======
                 let pending = provider.send_transaction(tx).await?;
                 Ok(*pending.tx_hash())
->>>>>>> upstream/master
             }
             Self::Raw(tx, signer) => {
                 debug!("sending transaction: {:?}", tx);

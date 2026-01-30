@@ -10,13 +10,8 @@ env:
   IS_NIGHTLY: true
 
   # Keep in sync with `docker-publish.yml`.
-<<<<<<< HEAD
-  RUST_PROFILE: maxperf
-  RUST_FEATURES: aws-kms,gcp-kms,turnkey,asm-keccak
-=======
   RUST_PROFILE: dist
-  RUST_FEATURES: aws-kms,gcp-kms,turnkey,cli,asm-keccak,js-tracer
->>>>>>> upstream/master
+  RUST_FEATURES: aws-kms,gcp-kms,turnkey,cli,asm-keccak
 
   LAST_STABLE_VERSION: "v1.5.1"
 

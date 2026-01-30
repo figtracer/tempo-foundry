@@ -2,12 +2,13 @@ use alloy_chains::Chain;
 use alloy_primitives::{TxHash, U256, utils::format_units};
 use alloy_provider::{PendingTransactionBuilder, PendingTransactionError, Provider, WatchTxError};
 use eyre::{Result, eyre};
-<<<<<<< HEAD
-use foundry_common::{provider::tempo::TempoRetryProvider, retry, retry::RetryError, shell};
-=======
 use forge_script_sequence::ScriptSequence;
-use foundry_common::{provider::RetryProvider, retry, retry::RetryError, shell};
->>>>>>> upstream/master
+use foundry_common::{
+    provider::{RetryProvider, tempo::TempoRetryProvider},
+    retry,
+    retry::RetryError,
+    shell,
+};
 use std::time::Duration;
 use tempo_alloy::rpc::TempoTransactionReceipt;
 
@@ -96,13 +97,9 @@ pub async fn check_tx_status(
 /// Prints parts of the receipt to stdout
 pub fn format_receipt(
     chain: Chain,
-<<<<<<< HEAD
     receipt: &TempoTransactionReceipt,
     fee_token_symbol: String,
-=======
-    receipt: &AnyTransactionReceipt,
     sequence: Option<&ScriptSequence>,
->>>>>>> upstream/master
 ) -> String {
     let gas_used = receipt.gas_used;
     let gas_price = receipt.effective_gas_price;

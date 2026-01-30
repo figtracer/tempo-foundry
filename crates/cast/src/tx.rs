@@ -60,7 +60,7 @@ pub struct SendTxOpts {
     pub eth: EthereumOpts,
 
     /// Fee token to use for transaction.
-    #[arg(long, value_parser = parse_fee_token_address)]
+    #[arg(long = "tempo.fee-token", value_parser = parse_fee_token_address)]
     pub fee_token: Option<Address>,
 }
 

@@ -4345,7 +4345,42 @@ casttest!(cast_mktx_negative_numbers, |_prj, cmd| {
     .assert_success();
 });
 
-<<<<<<< HEAD
+// Test cast mktx with EIP-4844 blob transaction (legacy format)
+casttest!(
+    #[ignore = "tempo skip - EIP-4844 not supported"]
+    cast_mktx_eip4844_blob,
+    |prj, cmd| {
+        // Create a temporary blob data file
+        let blob_data = b"dummy blob data for testing";
+        let blob_path = prj.root().join("blob_data.bin");
+        fs::write(&blob_path, blob_data).unwrap();
+
+        cmd.args([
+            "mktx",
+            "--private-key",
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "--chain",
+            "1",
+            "--nonce",
+            "0",
+            "--gas-limit",
+            "100000",
+            "--gas-price",
+            "10000000000",
+            "--priority-gas-price",
+            "1000000000",
+            "--blob",
+            "--eip4844",
+            "--blob-gas-price",
+            "1000000",
+            "--path",
+            blob_path.to_str().unwrap(),
+            "0x0000000000000000000000000000000000000001",
+        ])
+        .assert_success();
+    }
+);
+
 // Test cast mktx with EIP-7594 blob transaction (default format)
 casttest!(
     #[ignore = "tempo skip - EIP-7594 not supported"]
@@ -4380,70 +4415,6 @@ casttest!(
         .assert_success();
     }
 );
-=======
-// Test cast mktx with EIP-4844 blob transaction (legacy format)
-casttest!(cast_mktx_eip4844_blob, |prj, cmd| {
-    // Create a temporary blob data file
-    let blob_data = b"dummy blob data for testing";
-    let blob_path = prj.root().join("blob_data.bin");
-    fs::write(&blob_path, blob_data).unwrap();
-
-    cmd.args([
-        "mktx",
-        "--private-key",
-        "0x0000000000000000000000000000000000000000000000000000000000000001",
-        "--chain",
-        "1",
-        "--nonce",
-        "0",
-        "--gas-limit",
-        "100000",
-        "--gas-price",
-        "10000000000",
-        "--priority-gas-price",
-        "1000000000",
-        "--blob",
-        "--eip4844",
-        "--blob-gas-price",
-        "1000000",
-        "--path",
-        blob_path.to_str().unwrap(),
-        "0x0000000000000000000000000000000000000001",
-    ])
-    .assert_success();
-});
-
-// Test cast mktx with EIP-7594 blob transaction (default format)
-casttest!(cast_mktx_eip7594_blob, |prj, cmd| {
-    // Create a temporary blob data file
-    let blob_data = b"dummy peerdas blob data for testing";
-    let blob_path = prj.root().join("peerdas_blob_data.bin");
-    fs::write(&blob_path, blob_data).unwrap();
-
-    cmd.args([
-        "mktx",
-        "--private-key",
-        "0x0000000000000000000000000000000000000000000000000000000000000001",
-        "--chain",
-        "1",
-        "--nonce",
-        "0",
-        "--gas-limit",
-        "100000",
-        "--gas-price",
-        "10000000000",
-        "--priority-gas-price",
-        "1000000000",
-        "--blob",
-        "--blob-gas-price",
-        "1000000",
-        "--path",
-        blob_path.to_str().unwrap(),
-        "0x0000000000000000000000000000000000000001",
-    ])
-    .assert_success();
-});
->>>>>>> upstream/master
 
 // Test cast access-list with negative numbers
 casttest!(cast_access_list_negative_numbers, |_prj, cmd| {
@@ -4747,30 +4718,6 @@ casttest!(cast_call_valid_hex_calldata, |_prj, cmd| {
     .assert_success();
 });
 
-<<<<<<< HEAD
-// https://github.com/foundry-rs/foundry/issues/11584
-// Tests that invalid hex with uppercase 0X prefix also produces clear error
-casttest!(
-    #[ignore = "tempo skip - mainnet RPC"]
-    cast_call_invalid_hex_uppercase_prefix,
-    |_prj, cmd| {
-        let rpc = next_rpc_endpoint(NamedChain::Mainnet);
-        cmd.args([
-            "call",
-            "0xdead000000000000000000000000000000000000",
-            "--data",
-            "0X1", // Invalid: odd length hex with uppercase prefix
-            "--rpc-url",
-            rpc.as_str(),
-        ])
-        .assert_failure()
-        .stderr_eq(str![[r#"
-Error: Invalid hex calldata '0X1': odd number of digits
-
-"#]]);
-    }
-);
-=======
 // tests that the --curl flag outputs a valid curl command for cast rpc
 casttest!(curl_rpc, |_prj, cmd| {
     let rpc = "https://eth.example.com";
@@ -4906,4 +4853,3 @@ Error: Invalid hex calldata '0X1': odd number of digits
 
 "#]]);
 });
->>>>>>> upstream/master

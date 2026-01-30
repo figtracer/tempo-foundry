@@ -423,15 +423,6 @@ impl Erc20Subcommand {
                 sh_println!("{}", format_uint_exp(total_supply))?
             }
             // State-changing
-<<<<<<< HEAD
-            Self::Transfer { token, to, amount, send_tx, .. } => {
-                let provider = signing_provider(&send_tx).await?;
-                let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
-                    .transfer(to.resolve(&provider).await?, U256::from_str(&amount)?)
-                    .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
-                cast_send(
-=======
             Self::Transfer { token, to, amount, send_tx, tx: tx_opts, .. } => {
                 let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
@@ -446,7 +437,6 @@ impl Erc20Subcommand {
                 );
 
                 send_erc20_tx(
->>>>>>> upstream/master
                     provider,
                     tx,
                     &send_tx,
@@ -454,15 +444,6 @@ impl Erc20Subcommand {
                 )
                 .await?
             }
-<<<<<<< HEAD
-            Self::Approve { token, spender, amount, send_tx, .. } => {
-                let provider = signing_provider(&send_tx).await?;
-                let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
-                    .approve(spender.resolve(&provider).await?, U256::from_str(&amount)?)
-                    .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
-                cast_send(
-=======
             Self::Approve { token, spender, amount, send_tx, tx: tx_opts, .. } => {
                 let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
@@ -477,7 +458,6 @@ impl Erc20Subcommand {
                 );
 
                 send_erc20_tx(
->>>>>>> upstream/master
                     provider,
                     tx,
                     &send_tx,
@@ -485,15 +465,6 @@ impl Erc20Subcommand {
                 )
                 .await?
             }
-<<<<<<< HEAD
-            Self::Mint { token, to, amount, send_tx, .. } => {
-                let provider = signing_provider(&send_tx).await?;
-                let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
-                    .mint(to.resolve(&provider).await?, U256::from_str(&amount)?)
-                    .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
-                cast_send(
-=======
             Self::Mint { token, to, amount, send_tx, tx: tx_opts, .. } => {
                 let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
@@ -508,7 +479,6 @@ impl Erc20Subcommand {
                 );
 
                 send_erc20_tx(
->>>>>>> upstream/master
                     provider,
                     tx,
                     &send_tx,
@@ -516,15 +486,6 @@ impl Erc20Subcommand {
                 )
                 .await?
             }
-<<<<<<< HEAD
-            Self::Burn { token, amount, send_tx, .. } => {
-                let provider = signing_provider(&send_tx).await?;
-                let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
-                    .burn(U256::from_str(&amount)?)
-                    .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
-                cast_send(
-=======
             Self::Burn { token, amount, send_tx, tx: tx_opts, .. } => {
                 let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
@@ -539,7 +500,6 @@ impl Erc20Subcommand {
                 );
 
                 send_erc20_tx(
->>>>>>> upstream/master
                     provider,
                     tx,
                     &send_tx,

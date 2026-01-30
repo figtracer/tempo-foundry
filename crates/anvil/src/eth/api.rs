@@ -64,7 +64,6 @@ use alloy_rpc_types_eth::FillTransaction;
 use alloy_serde::WithOtherFields;
 use alloy_sol_types::{SolCall, SolValue, sol};
 use alloy_transport::TransportErrorKind;
-use alloy_trie::TrieAccount;
 use anvil_core::{
     eth::{
         EthRequest,

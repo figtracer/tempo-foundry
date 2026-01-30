@@ -185,6 +185,7 @@ pub fn format_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy_network::AnyTransactionReceipt;
     use alloy_primitives::B256;
     use std::collections::VecDeque;
 

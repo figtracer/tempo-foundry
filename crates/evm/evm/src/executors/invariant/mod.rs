@@ -532,7 +532,9 @@ impl<'a> InvariantExecutor<'a> {
                     gas_report_traces: result.gas_report_traces,
                     line_coverage: result.line_coverage,
                     metrics: result.metrics,
-                    failed_corpus_replays: corpus_manager.failed_replays(),
+                    failed_corpus_replays: corpus_manager.failed_replays,
+                    optimization_best_value: result.optimization_best_value,
+                    optimization_best_sequence: result.optimization_best_sequence,
                 });
             }
         }
@@ -680,11 +682,6 @@ impl<'a> InvariantExecutor<'a> {
                                 invariant_test.test_data.failures.error =
                                     Some(InvariantFuzzError::Revert(case_data));
                                 result::RichInvariantResults::new(false, None)
-<<<<<<< HEAD
-                            } else {
-                                current_run.inputs.pop();
-                                result::RichInvariantResults::new(true, None)
-=======
                             } else if !invariant_contract.is_optimization() {
                                 // In optimization mode, keep reverted calls to preserve
                                 // warp/roll values for correct replay during shrinking.
@@ -692,16 +689,12 @@ impl<'a> InvariantExecutor<'a> {
                                 result::RichInvariantResults::new(true, None)
                             } else {
                                 result::RichInvariantResults::new(true, None)
->>>>>>> upstream/master
                             }
                         } else {
                             result::RichInvariantResults::new(true, None)
                         }
                     };
-<<<<<<< HEAD
-=======
 
->>>>>>> upstream/master
                     if !result.can_continue || current_run.depth == self.config.depth - 1 {
                         invariant_test.set_last_run_inputs(&current_run.inputs);
                     }

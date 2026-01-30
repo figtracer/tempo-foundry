@@ -439,12 +439,7 @@ async fn can_get_node_info() {
 
     let block_number = provider.get_block_number().await.unwrap();
     let block = provider.get_block(BlockId::from(block_number)).await.unwrap().unwrap();
-<<<<<<< HEAD
-    // Tempo uses its own hardfork names (e.g., "T0") instead of SpecId names
-    let hard_fork = "T0";
-=======
     let hard_fork: &str = SpecId::OSAKA.into();
->>>>>>> upstream/master
 
     let expected_node_info = NodeInfo {
         current_block_number: 0_u64,
@@ -792,10 +787,7 @@ async fn flaky_test_reorg() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-<<<<<<< HEAD
 #[ignore = "Reorg blockhash consistency differs in Tempo - needs investigation"]
-=======
->>>>>>> upstream/master
 async fn test_reorg_blockhash_opcode_consistency() {
     let (api, handle) = spawn(NodeConfig::test()).await;
     let provider = handle.http_provider();
@@ -838,10 +830,7 @@ async fn test_reorg_blockhash_opcode_consistency() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-<<<<<<< HEAD
 #[ignore = "Deep reorg blockhash consistency differs in Tempo - needs investigation"]
-=======
->>>>>>> upstream/master
 async fn test_reorg_deep_blockhash_consistency() {
     let (api, handle) = spawn(NodeConfig::test()).await;
     let provider = handle.http_provider();

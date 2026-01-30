@@ -228,7 +228,7 @@ impl Cheatcode for attachBlobCall {
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
         let sidecar: SidecarBuilder<SimpleCoder> = SidecarBuilder::from_slice(blob);
-        let sidecar_variant = if ccx.ecx.cfg.spec < SpecId::OSAKA {
+        let sidecar_variant = if ccx.ecx.cfg.spec < SpecId::OSAKA.into() {
             sidecar.build_4844().map_err(|e| format!("{e}"))?.into()
         } else {
             sidecar.build_7594().map_err(|e| format!("{e}"))?.into()

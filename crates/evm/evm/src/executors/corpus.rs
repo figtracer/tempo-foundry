@@ -251,10 +251,8 @@ pub struct WorkerCorpus {
     pub(crate) failed_replays: usize,
     /// Worker Metrics
     pub(crate) metrics: CorpusMetrics,
-<<<<<<< HEAD
     // Whether eviction is allowed. Set to false during corpus replay phase.
     allow_eviction: bool,
-=======
     /// Fuzzed calls generator.
     tx_generator: BoxedStrategy<BasicTxDetails>,
     /// Call sequence mutation strategy type generator used by stateful fuzzing.
@@ -272,7 +270,6 @@ pub struct WorkerCorpus {
     worker_dir: Option<PathBuf>,
     /// Metrics at last sync - used to calculate deltas while syncing with global metrics
     last_sync_metrics: CorpusMetrics,
->>>>>>> upstream/master
 }
 
 impl WorkerCorpus {
@@ -312,59 +309,6 @@ impl WorkerCorpus {
         let mut metrics = CorpusMetrics::default();
         let mut failed_replays = 0;
 
-<<<<<<< HEAD
-        // Early return if corpus dir / coverage guided fuzzing not configured.
-        let Some(corpus_dir) = &config.corpus_dir else {
-            return Ok(Self {
-                tx_generator,
-                mutation_generator,
-                config,
-                in_memory_corpus,
-                current_mutated: None,
-                failed_replays,
-                history_map,
-                metrics,
-                allow_eviction: true,
-            });
-        };
-
-        // Ensure corpus dir for current test is created.
-        if !corpus_dir.is_dir() {
-            foundry_common::fs::create_dir_all(corpus_dir)?;
-        }
-
-        let can_replay_tx = |tx: &BasicTxDetails| -> bool {
-            fuzzed_contracts.is_some_and(|contracts| contracts.targets.lock().can_replay(tx))
-                || fuzzed_function.is_some_and(|function| {
-                    tx.call_details
-                        .calldata
-                        .get(..4)
-                        .is_some_and(|selector| function.selector() == selector)
-                })
-        };
-
-        'corpus_replay: for entry in std::fs::read_dir(corpus_dir)? {
-            let path = entry?.path();
-            if path.is_file()
-                && let Some(name) = path.file_name().and_then(|s| s.to_str())
-                && name.contains(METADATA_SUFFIX)
-            {
-                // Ignore metadata files
-                continue;
-            }
-
-            let read_corpus_result = match path.extension().and_then(|ext| ext.to_str()) {
-                Some("gz") => foundry_common::fs::read_json_gzip_file::<Vec<BasicTxDetails>>(&path),
-                _ => foundry_common::fs::read_json_file::<Vec<BasicTxDetails>>(&path),
-            };
-
-            let Ok(tx_seq) = read_corpus_result else {
-                trace!(target: "corpus", "failed to load corpus from {}", path.display());
-                continue;
-            };
-
-            if !tx_seq.is_empty() {
-=======
         if id == 0
             && let Some(corpus_dir) = &config.corpus_dir
         {
@@ -376,7 +320,6 @@ impl WorkerCorpus {
                 if tx_seq.is_empty() {
                     continue;
                 }
->>>>>>> upstream/master
                 // Warm up history map from loaded sequences.
                 let mut executor = executor.clone();
                 for tx in &tx_seq {
@@ -426,18 +369,12 @@ impl WorkerCorpus {
             tx_generator,
             mutation_generator,
             current_mutated: None,
-<<<<<<< HEAD
-            failed_replays,
-            history_map,
-            metrics,
             allow_eviction: true,
-=======
             config: config.into(),
             new_entry_indices: Default::default(),
             last_sync_timestamp: 0,
             worker_dir,
             last_sync_metrics: Default::default(),
->>>>>>> upstream/master
         })
     }
 
@@ -735,16 +672,12 @@ impl WorkerCorpus {
 
     /// Flush the oldest corpus mutated more than configured max mutations unless they are
     /// favored.
-<<<<<<< HEAD
-    fn evict_oldest_corpus(&mut self) -> eyre::Result<()> {
+    fn evict_oldest_corpus(&mut self) -> Result<()> {
         // Skip eviction if disabled (e.g., during corpus replay phase)
         if !self.allow_eviction {
             return Ok(());
         }
 
-=======
-    fn evict_oldest_corpus(&mut self) -> Result<()> {
->>>>>>> upstream/master
         if self.in_memory_corpus.len() > self.config.corpus_min_size.max(1)
             && let Some(index) = self.in_memory_corpus.iter().position(|corpus| {
                 corpus.total_mutations > self.config.corpus_min_mutations && !corpus.is_favored
@@ -1235,14 +1168,11 @@ mod tests {
             failed_replays: 0,
             history_map: vec![0u8; COVERAGE_MAP_SIZE],
             metrics: CorpusMetrics::default(),
-<<<<<<< HEAD
             allow_eviction: true,
-=======
             new_entry_indices: Default::default(),
             last_sync_timestamp: 0,
             worker_dir: Some(corpus_root),
             last_sync_metrics: CorpusMetrics::default(),
->>>>>>> upstream/master
         };
 
         (manager, seed_uuid)
@@ -1346,14 +1276,11 @@ mod tests {
             failed_replays: 0,
             history_map: vec![0u8; COVERAGE_MAP_SIZE],
             metrics: CorpusMetrics::default(),
-<<<<<<< HEAD
             allow_eviction: true,
-=======
             new_entry_indices: Default::default(),
             last_sync_timestamp: 0,
             worker_dir: Some(corpus_root),
             last_sync_metrics: CorpusMetrics::default(),
->>>>>>> upstream/master
         };
 
         // First eviction should remove the non-favored one.

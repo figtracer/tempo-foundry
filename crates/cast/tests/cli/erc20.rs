@@ -264,8 +264,6 @@ forgetest_async!(erc20_burn_success, |prj, cmd| {
     assert_eq!(total_supply, initial_supply - burn_amount);
 });
 
-<<<<<<< HEAD
-=======
 // tests that `transfer` command works with gas options
 forgetest_async!(erc20_transfer_with_gas_opts, |prj, cmd| {
     let (rpc, token) = setup_token_test(&prj, &mut cmd).await;
@@ -296,7 +294,6 @@ forgetest_async!(erc20_transfer_with_gas_opts, |prj, cmd| {
     assert_eq!(balance, transfer_amount);
 });
 
->>>>>>> upstream/master
 // tests that `transfer` command fails with insufficient gas limit
 forgetest_async!(erc20_transfer_insufficient_gas, |prj, cmd| {
     let (rpc, token) = setup_token_test(&prj, &mut cmd).await;
@@ -366,8 +363,6 @@ forgetest_async!(erc20_transfer_incorrect_nonce, |prj, cmd| {
     let balance = get_balance(&mut cmd, &token, anvil_const::ADDR2, &rpc);
     assert_eq!(balance, transfer_amount); // 2nd transfer failed
 });
-<<<<<<< HEAD
-=======
 
 // tests that the --curl flag outputs a valid curl command for cast erc20 balance
 casttest!(curl_erc20_balance, |_prj, cmd| {
@@ -506,4 +501,3 @@ casttest!(erc20_curl_total_supply, |_prj, cmd| {
     assert!(output.contains("eth_call"));
     assert!(output.contains(rpc));
 });
->>>>>>> upstream/master

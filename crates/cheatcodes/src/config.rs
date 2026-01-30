@@ -9,6 +9,7 @@ use foundry_config::{
 };
 use foundry_evm_core::opts::EvmOpts;
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -56,7 +57,6 @@ pub struct CheatsConfig {
     pub seed: Option<U256>,
     /// Whether to allow `expectRevert` to work for internal calls.
     pub internal_expect_revert: bool,
-<<<<<<< HEAD
     /// Mapping of chain aliases to chain data
     pub chains: HashMap<String, ChainData>,
     /// Mapping of chain IDs to their aliases
@@ -73,8 +73,6 @@ pub struct ChainData {
     pub name: String,
     pub chain_id: u64,
     pub default_rpc_url: String, // Store default RPC URL
-=======
->>>>>>> upstream/master
 }
 
 impl CheatsConfig {
@@ -113,13 +111,10 @@ impl CheatsConfig {
             assertions_revert: config.assertions_revert,
             seed: config.fuzz.seed,
             internal_expect_revert: config.allow_internal_expect_revert,
-<<<<<<< HEAD
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
             fee_token,
             batch,
-=======
->>>>>>> upstream/master
         }
     }
 
@@ -257,13 +252,10 @@ impl Default for CheatsConfig {
             assertions_revert: true,
             seed: None,
             internal_expect_revert: false,
-<<<<<<< HEAD
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
             fee_token: None,
             batch: false,
-=======
->>>>>>> upstream/master
         }
     }
 }

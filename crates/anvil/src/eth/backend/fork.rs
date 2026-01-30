@@ -24,7 +24,6 @@ use alloy_rpc_types::{
 };
 use alloy_serde::WithOtherFields;
 use alloy_transport::TransportError;
-use alloy_trie::TrieAccount;
 use foundry_common::provider::{ProviderBuilder, RetryProvider};
 use foundry_primitives::FoundryTxReceipt;
 use parking_lot::{

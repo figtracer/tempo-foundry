@@ -273,6 +273,7 @@ foundry-test-utils = { path = "crates/test-utils" }
 foundry-wallets = { path = "crates/wallets" }
 foundry-linking = { path = "crates/linking" }
 foundry-primitives = { path = "crates/primitives" }
+foundry-block-explorers = { version = "0.22.0", default-features = false }
 foundry-compilers = { version = "0.19.14", default-features = false, features = [
   "rustls",
   "svm-solc",
@@ -517,4 +518,3 @@ solar = { package = "solar-compiler", git = "https://github.com/paradigmxyz/sola
 solar-interface = { package = "solar-interface", git = "https://github.com/paradigmxyz/solar", rev = "530f129" }
 solar-ast = { package = "solar-ast", git = "https://github.com/paradigmxyz/solar", rev = "530f129" }
 solar-sema = { package = "solar-sema", git = "https://github.com/paradigmxyz/solar", rev = "530f129" }
-foundry-block-explorers = { version = "0.22.0", default-features = false }

@@ -207,18 +207,16 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
         Ok(res)
     }
 
-<<<<<<< HEAD
-    /// Fetches transaction receipt by hash, waiting for confirmations if necessary.
-=======
     /// Sends a raw RLP-encoded transaction via `eth_sendRawTransaction`.
     ///
     /// Used for transaction types that the standard Alloy network stack doesn't understand
     /// (e.g., Tempo transactions).
-    pub async fn send_raw(&self, raw_tx: &[u8]) -> Result<PendingTransactionBuilder<AnyNetwork>> {
+    pub async fn send_raw(&self, raw_tx: &[u8]) -> Result<PendingTransactionBuilder<TempoNetwork>> {
         let res = self.provider.send_raw_transaction(raw_tx).await?;
         Ok(res)
     }
 
+     /// Fetches transaction receipt by hash, waiting for confirmations if necessary.
     /// # Example
     ///
     /// ```
@@ -235,7 +233,6 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     /// # Ok(())
     /// # }
     /// ```
->>>>>>> upstream/master
     pub async fn receipt(
         &self,
         tx_hash: String,
@@ -298,25 +295,15 @@ pub struct CastTxBuilder<P, S, T> {
     pub(crate) provider: P,
     pub(crate) tx: WithOtherFields<T>,
     /// Whether the transaction should be sent as a legacy transaction.
-<<<<<<< HEAD
     pub(crate) legacy: bool,
     pub(crate) blob: bool,
+    /// Whether the blob transaction should use EIP-4844 (legacy) format instead of EIP-7594.
+    pub(crate) eip4844: bool,
     pub(crate) auth: Vec<CliAuthorizationList>,
     pub(crate) chain: Chain,
     pub(crate) etherscan_api_key: Option<String>,
     pub(crate) access_list: Option<Option<AccessList>>,
     pub(crate) state: S,
-=======
-    legacy: bool,
-    blob: bool,
-    /// Whether the blob transaction should use EIP-4844 (legacy) format instead of EIP-7594.
-    eip4844: bool,
-    auth: Vec<CliAuthorizationList>,
-    chain: Chain,
-    etherscan_api_key: Option<String>,
-    access_list: Option<Option<AccessList>>,
-    state: S,
->>>>>>> upstream/master
 }
 
 impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TransactionRequest> {
@@ -459,15 +446,9 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TransactionRequest> {
     }
 }
 
-<<<<<<< HEAD
 impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
     /// Builds [TransactionRequest] and fills missing fields. Returns a transaction which is ready
     /// to be broadcasted.
-=======
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState> {
-    /// Builds a [FoundryTransactionRequest] and fills missing fields. Returns a transaction which
-    /// is ready to be broadcasted.
->>>>>>> upstream/master
     pub async fn build(
         self,
         sender: impl Into<SenderKind<'_>>,
@@ -718,19 +699,13 @@ pub(crate) async fn decode_execution_revert(data: &RawValue) -> Result<Option<St
 /// instead of executing RPC requests.
 pub(crate) async fn signing_provider_with_curl(
     tx_opts: &SendTxOpts,
-<<<<<<< HEAD
-) -> eyre::Result<TempoRetryProviderWithSigner> {
-    let config = tx_opts.eth.load_config()?;
-    let signer = tx_opts.eth.wallet.signer().await?;
-    let provider = get_tempo_signer_provider(&config, signer)?;
-=======
     curl_mode: bool,
+
 ) -> eyre::Result<RetryProviderWithSigner> {
     let config = tx_opts.eth.load_config()?;
     let signer = tx_opts.eth.wallet.signer().await?;
     let wallet = alloy_network::EthereumWallet::from(signer);
-    let provider = get_provider_builder(&config, curl_mode)?.build_with_wallet(wallet)?;
->>>>>>> upstream/master
+    let provider = get_tempo_provider_builder(&config, curl_mode)?.build_with_wallet(wallet)?;
     if let Some(interval) = tx_opts.poll_interval {
         provider.client().set_poll_interval(Duration::from_secs(interval))
     }

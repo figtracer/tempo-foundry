@@ -1,10 +1,6 @@
 use std::str::FromStr;
 
-<<<<<<< HEAD
-=======
 use super::TempoOpts;
-use crate::utils::{parse_ether_value, parse_json};
->>>>>>> upstream/master
 use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization};
 use alloy_primitives::{Address, Signature, U64, U256, hex};
 use alloy_rlp::Decodable;
@@ -148,8 +144,10 @@ pub struct TransactionOpts {
     pub access_list: Option<Option<AccessList>>,
 
     #[command(flatten)]
-<<<<<<< HEAD
     pub sponsor: SponsorOpts,
+
+    #[command(flatten)]
+    pub tempo: TempoOpts,
 }
 
 /// Options for sponsored (gasless) transactions.
@@ -190,9 +188,6 @@ impl SponsorOpts {
     pub fn get_signature(&self) -> eyre::Result<Option<Signature>> {
         self.sponsor_signature.as_ref().map(|s| parse_signature(s)).transpose()
     }
-=======
-    pub tempo: TempoOpts,
->>>>>>> upstream/master
 }
 
 #[cfg(test)]

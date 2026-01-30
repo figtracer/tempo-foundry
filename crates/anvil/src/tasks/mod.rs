@@ -63,11 +63,7 @@ impl TaskManager {
     /// let endpoint = "http://....";
     /// let (api, handle) = spawn(NodeConfig::default().with_eth_rpc_url(Some(endpoint))).await;
     ///
-<<<<<<< HEAD
-    /// let provider = RootProvider::new_http(endpoint.parse().unwrap());
-=======
     /// let provider = RootProvider::connect(endpoint).await.unwrap();
->>>>>>> upstream/master
     ///
     /// handle.task_manager().spawn_reset_on_new_polled_blocks(provider, api);
     /// # }
@@ -124,11 +120,7 @@ impl TaskManager {
     /// # async fn t() {
     /// let (api, handle) = spawn(NodeConfig::default().with_eth_rpc_url(Some("http://...."))).await;
     ///
-<<<<<<< HEAD
-    /// let provider = RootProvider::connect(WsConnect::new("ws://...")).await.unwrap();
-=======
     /// let provider = RootProvider::connect("ws://...").await.unwrap();
->>>>>>> upstream/master
     ///
     /// handle.task_manager().spawn_reset_on_subscribed_blocks(provider, api);
     ///

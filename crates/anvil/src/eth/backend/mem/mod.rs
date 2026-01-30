@@ -37,13 +37,8 @@ use crate::{
 };
 use alloy_chains::NamedChain;
 use alloy_consensus::{
-<<<<<<< HEAD
-    Blob, BlockHeader, EnvKzgSettings, Header, Signed, Transaction as TransactionTrait, TxEnvelope,
-    Typed2718,
-=======
     Blob, BlockHeader, EnvKzgSettings, Header, Signed, Transaction as TransactionTrait,
     TrieAccount, TxEnvelope, Typed2718,
->>>>>>> upstream/master
     proofs::{calculate_receipt_root, calculate_transaction_root},
     transaction::Recovered,
 };
@@ -62,11 +57,7 @@ use alloy_network::{
     ReceiptResponse, TransactionBuilder, UnknownTxEnvelope, UnknownTypedTransaction,
 };
 use alloy_primitives::{
-<<<<<<< HEAD
     Address, B256, Bytes, TxHash, TxKind, U64, U256, address, hex, keccak256, logs_bloom,
-=======
-    Address, B256, Bytes, TxHash, TxKind, U64, U256, hex, keccak256, logs_bloom,
->>>>>>> upstream/master
     map::{AddressMap, HashMap},
 };
 use alloy_rpc_types::{
@@ -89,12 +80,7 @@ use alloy_rpc_types::{
 };
 use alloy_serde::{OtherFields, WithOtherFields};
 use alloy_signer::Signature;
-<<<<<<< HEAD
-use alloy_signer_local::PrivateKeySigner;
-use alloy_trie::{HashBuilder, Nibbles, TrieAccount, proof::ProofRetainer};
-=======
 use alloy_trie::{HashBuilder, Nibbles, proof::ProofRetainer};
->>>>>>> upstream/master
 use anvil_core::eth::{
     block::{Block, BlockInfo},
     transaction::{MaybeImpersonatedTransaction, PendingTransaction, TransactionInfo},
@@ -3035,13 +3021,8 @@ impl Backend {
                     }
                     GethDebugBuiltInTracerType::NoopTracer
                     | GethDebugBuiltInTracerType::MuxTracer
-<<<<<<< HEAD
-                    | GethDebugBuiltInTracerType::FlatCallTracer
-                    | GethDebugBuiltInTracerType::Erc7562Tracer => {}
-=======
                     | GethDebugBuiltInTracerType::Erc7562Tracer
                     | GethDebugBuiltInTracerType::FlatCallTracer => {}
->>>>>>> upstream/master
                 },
                 GethDebugTracerType::JsTracer(_code) => {}
             }
@@ -3388,34 +3369,6 @@ impl Backend {
         }))
     }
 
-<<<<<<< HEAD
-    pub fn get_blob_sidecars_by_block_id(
-        &self,
-        block_id: BlockId,
-    ) -> Result<Option<BlobTransactionSidecar>> {
-        if let Some(full_block) = self.get_full_block(block_id) {
-            let sidecar = full_block
-                .into_transactions_iter()
-                .map(FoundryTxEnvelope::try_from)
-                .filter_map(|typed_tx_result| {
-                    typed_tx_result.ok()?.sidecar().map(|sidecar| sidecar.sidecar().clone())
-                })
-                .fold(BlobTransactionSidecar::default(), |mut acc, sidecar| {
-                    if let Some(eip4844_sidecar) = sidecar.as_eip4844() {
-                        acc.blobs.extend(eip4844_sidecar.blobs.iter().copied());
-                        acc.commitments.extend(eip4844_sidecar.commitments.iter().copied());
-                        acc.proofs.extend(eip4844_sidecar.proofs.iter().copied());
-                    }
-                    acc
-                });
-            Ok(Some(sidecar))
-        } else {
-            Ok(None)
-        }
-    }
-
-=======
->>>>>>> upstream/master
     pub fn get_blob_by_versioned_hash(&self, hash: B256) -> Result<Option<Blob>> {
         let storage = self.blockchain.storage.read();
         for block in storage.blocks.values() {

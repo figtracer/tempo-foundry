@@ -84,10 +84,7 @@ flate2.workspace = true
 [build-dependencies]
 chrono.workspace = true
 vergen = { workspace = true, features = ["build", "emit_and_set"] }
-<<<<<<< HEAD
 vergen-git2 = { workspace = true }
-=======
->>>>>>> upstream/master
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

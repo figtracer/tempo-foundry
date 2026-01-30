@@ -16,7 +16,9 @@ use clap::Args;
 use eyre::{Result, WrapErr};
 use foundry_cli::{
     opts::{CliAuthorizationList, EthereumOpts, TransactionOpts},
-    utils::{self, LoadConfig, get_tempo_provider_builder, parse_fee_token_address, parse_function_args},
+    utils::{
+        self, LoadConfig, get_tempo_provider_builder, parse_fee_token_address, parse_function_args,
+    },
 };
 use foundry_common::{
     TransactionReceiptWithRevertReason, fmt::*, get_pretty_tx_receipt_attr,

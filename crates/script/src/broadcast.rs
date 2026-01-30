@@ -133,7 +133,7 @@ impl<'a> SendTransactionKind<'a> {
     /// - Sign and submit via `eth_sendRawTransaction` for raw transactions
     /// - Submit pre-signed transaction via `eth_sendRawTransaction`
     pub async fn send(self, provider: Arc<TempoRetryProvider>) -> Result<TxHash> {
-        let pending = match self {
+        match self {
             Self::Unlocked(tx) => {
                 debug!("sending transaction from unlocked account {:?}", tx);
 
@@ -161,8 +161,7 @@ impl<'a> SendTransactionKind<'a> {
                 // Convert TempoTransactionRequest to TransactionRequest for browser wallet
                 Ok(signer.send_transaction_via_browser(tx.into_inner().into()).await?)
             }
-        };
-        pending
+        }
     }
 
     /// Prepares and sends the transaction in one operation.

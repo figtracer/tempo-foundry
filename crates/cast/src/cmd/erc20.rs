@@ -63,11 +63,7 @@ pub struct Erc20TxOpts {
 }
 
 /// Apply transaction options to a TempoTransactionRequest for ERC20 operations.
-fn apply_tempo_tx_opts(
-    tx: &mut TempoTransactionRequest,
-    tx_opts: &Erc20TxOpts,
-    is_legacy: bool,
-) {
+fn apply_tempo_tx_opts(tx: &mut TempoTransactionRequest, tx_opts: &Erc20TxOpts, is_legacy: bool) {
     if let Some(gas_limit) = tx_opts.gas_limit {
         tx.set_gas_limit(gas_limit.to());
     }
@@ -385,7 +381,7 @@ impl Erc20Subcommand {
             // State-changing
             Self::Transfer { token, to, amount, send_tx, tx: tx_opts, .. } => {
                 let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
-                let is_legacy = config.chain.map_or(false, |c| c.is_legacy());
+                let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .transfer(to.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
@@ -403,7 +399,7 @@ impl Erc20Subcommand {
             }
             Self::Approve { token, spender, amount, send_tx, tx: tx_opts, .. } => {
                 let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
-                let is_legacy = config.chain.map_or(false, |c| c.is_legacy());
+                let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .approve(spender.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
@@ -421,7 +417,7 @@ impl Erc20Subcommand {
             }
             Self::Mint { token, to, amount, send_tx, tx: tx_opts, .. } => {
                 let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
-                let is_legacy = config.chain.map_or(false, |c| c.is_legacy());
+                let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .mint(to.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
@@ -439,7 +435,7 @@ impl Erc20Subcommand {
             }
             Self::Burn { token, amount, send_tx, tx: tx_opts, .. } => {
                 let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
-                let is_legacy = config.chain.map_or(false, |c| c.is_legacy());
+                let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .burn(U256::from_str(&amount)?)
                     .into_transaction_request();

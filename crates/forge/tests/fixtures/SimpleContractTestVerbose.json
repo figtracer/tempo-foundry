@@ -47,6 +47,7 @@
                     "output": "{...}",
                     "gas_used": "{...}",
                     "gas_limit": "{...}",
+                    "gas_refund_counter": 0,
                     "status": "Return",
                     "steps": [],
                     "decoded": null
@@ -84,6 +85,7 @@
                     "output": "0x",
                     "gas_used": "{...}",
                     "gas_limit": "{...}",
+                    "gas_refund_counter": 0,
                     "status": "Stop",
                     "steps": [
                       {
@@ -10379,6 +10381,7 @@
                     "output": "{...}",
                     "gas_used": "{...}",
                     "gas_limit": "{...}",
+                    "gas_refund_counter": 0,
                     "status": "Return",
                     "steps": [
                       {
@@ -10770,6 +10773,7 @@
                     "output": "0x",
                     "gas_used": "{...}",
                     "gas_limit": "{...}",
+                    "gas_refund_counter": 0,
                     "status": "Stop",
                     "steps": [
                       {
@@ -14116,6 +14120,7 @@
                     "output": "0x",
                     "gas_used": "{...}",
                     "gas_limit": "{...}",
+                    "gas_refund_counter": 0,
                     "status": "Stop",
                     "steps": [],
                     "decoded": null

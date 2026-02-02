@@ -599,7 +599,7 @@ async fn test_fork_revert_next_block_timestamp() {
 // test that after a snapshot revert, the env block is reset
 // to its correct value (block number, etc.)
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "Fork block difficulty handling differs in Tempo - needs investigation"]
+#[ignore = "fork_config() uses pre-merge block 14_608_400, but TempoHardfork always maps to SpecId::OSAKA (post-merge). This causes DIFFICULTY opcode to return prevrandao instead of actual difficulty. Fix: update BLOCK_NUMBER in fork.rs to a post-merge block (>15_537_394)"]
 async fn test_fork_revert_call_latest_block_timestamp() {
     let (api, handle) = spawn(fork_config()).await;
     let provider = handle.http_provider();
@@ -786,7 +786,6 @@ async fn flaky_test_reorg() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "Reorg blockhash consistency differs in Tempo - needs investigation"]
 async fn test_reorg_blockhash_opcode_consistency() {
     let (api, handle) = spawn(NodeConfig::test()).await;
     let provider = handle.http_provider();
@@ -829,7 +828,6 @@ async fn test_reorg_blockhash_opcode_consistency() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "Deep reorg blockhash consistency differs in Tempo - needs investigation"]
 async fn test_reorg_deep_blockhash_consistency() {
     let (api, handle) = spawn(NodeConfig::test()).await;
     let provider = handle.http_provider();

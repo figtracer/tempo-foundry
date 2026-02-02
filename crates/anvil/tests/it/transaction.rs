@@ -901,7 +901,6 @@ async fn test_tx_receipt() {
 
 // <https://github.com/foundry-rs/foundry/issues/12837>
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "Reverted contract creation address handling differs in Tempo"]
 async fn test_reverted_contract_creation_has_contract_address() {
     let (_api, handle) = spawn(NodeConfig::test()).await;
 

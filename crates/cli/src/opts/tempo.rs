@@ -55,7 +55,7 @@ pub struct TempoOpts {
     ///
     /// Allows multiple transactions with the same nonce but different keys
     /// to be executed in parallel.
-    #[arg(long, value_name = "NONCE_KEY")]
+    #[arg(long = "tempo.nonce-key", value_name = "NONCE_KEY")]
     pub nonce_key: Option<U256>,
 
     /// Use expiring nonce mode (TIP-1009).
@@ -63,21 +63,21 @@ pub struct TempoOpts {
     /// Automatically sets nonce-key to U256::MAX and nonce to 0.
     /// Requires --tempo.valid-before to be set. Expiring nonces use transaction hash
     /// for replay protection instead of sequential nonces, avoiding state bloat.
-    #[arg(long, requires = "valid_before")]
+    #[arg(long = "tempo.expiring-nonce", requires = "valid_before")]
     pub expiring_nonce: bool,
 
     /// Transaction valid before timestamp (Tempo expiring nonces).
     ///
     /// Transaction can only be included in a block before this timestamp.
     /// Required when using --tempo.expiring-nonce. Maximum expiry window is 30 seconds.
-    #[arg(long, value_name = "TIMESTAMP")]
+    #[arg(long = "tempo.valid-before", value_name = "TIMESTAMP")]
     pub valid_before: Option<u64>,
 
     /// Transaction valid after timestamp (Tempo expiring nonces).
     ///
     /// Transaction can only be included in a block after this timestamp.
     /// Must be less than --tempo.valid-before if both are set.
-    #[arg(long, value_name = "TIMESTAMP")]
+    #[arg(long = "tempo.valid-after", value_name = "TIMESTAMP")]
     pub valid_after: Option<u64>,
 }
 

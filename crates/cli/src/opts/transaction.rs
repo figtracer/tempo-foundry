@@ -72,35 +72,6 @@ pub struct TransactionOpts {
     #[arg(long)]
     pub nonce: Option<U64>,
 
-    /// Nonce key for 2D nonce support (Tempo parallelizable nonces).
-    ///
-    /// Allows multiple transactions with the same nonce but different keys
-    /// to be executed in parallel.
-    #[arg(long, value_name = "NONCE_KEY")]
-    pub nonce_key: Option<U256>,
-
-    /// Use expiring nonce mode (TIP-1009).
-    ///
-    /// Automatically sets nonce-key to U256::MAX and nonce to 0.
-    /// Requires --valid-before to be set. Expiring nonces use transaction hash
-    /// for replay protection instead of sequential nonces, avoiding state bloat.
-    #[arg(long, requires = "valid_before")]
-    pub expiring_nonce: bool,
-
-    /// Transaction valid before timestamp (Tempo expiring nonces).
-    ///
-    /// Transaction can only be included in a block before this timestamp.
-    /// Required when using --expiring-nonce. Maximum expiry window is 30 seconds.
-    #[arg(long, value_name = "TIMESTAMP")]
-    pub valid_before: Option<u64>,
-
-    /// Transaction valid after timestamp (Tempo expiring nonces).
-    ///
-    /// Transaction can only be included in a block after this timestamp.
-    /// Must be less than --valid-before if both are set.
-    #[arg(long, value_name = "TIMESTAMP")]
-    pub valid_after: Option<u64>,
-
     /// Send a legacy transaction instead of an EIP1559 transaction.
     ///
     /// This is automatically enabled for common networks without EIP1559.

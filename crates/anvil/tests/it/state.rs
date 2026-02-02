@@ -50,7 +50,6 @@ async fn can_load_state() {
 
 // <https://github.com/foundry-rs/foundry/issues/12645>
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "State loading genesis hash handling differs in Tempo - needs investigation"]
 async fn finalized_block_hash_consistent_after_load_state() {
     use alloy_eips::BlockNumberOrTag;
 

@@ -275,9 +275,10 @@ echo -e "\n=== DEPLOY COUNTER WITH REQUIRE ==="
 # Use CounterWithRequire.sol (has require(newNumber > 100)) for batch revert testing
 cp "$SCRIPT_DIR/contracts/CounterWithRequire.sol" src/Counter.sol
 forge build
-REQUIRE_COUNTER_OUTPUT=$(forge create src/Counter.sol:Counter --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast --json)
+REQUIRE_COUNTER_OUTPUT=$(forge create src/Counter.sol:Counter --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast 2>&1)
 echo "Deploy output: $REQUIRE_COUNTER_OUTPUT"
-REQUIRE_COUNTER=$(echo "$REQUIRE_COUNTER_OUTPUT" | jq -r '.deployedTo')
+# Extract address from human-readable output (avoids jq parse errors from stderr log pollution)
+REQUIRE_COUNTER=$(echo "$REQUIRE_COUNTER_OUTPUT" | grep -oP 'Deployed to: \K0x[a-fA-F0-9]+')
 if [[ "$REQUIRE_COUNTER" == "null" || -z "$REQUIRE_COUNTER" ]]; then
   echo "ERROR: Failed to deploy Counter with require"
   exit 1

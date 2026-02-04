@@ -192,7 +192,8 @@ mod tests {
             "transactionIndex": "0x0", "blockHash": B256::ZERO, "blockNumber": "0x3039",
             "gasUsed": "0x5208", "effectiveGasPrice": "0x4a817c800",
             "from": "0x0000000000000000000000000000000000000000",
-            "to": "0x0000000000000000000000000000000000000000", "contractAddress": null
+            "to": "0x0000000000000000000000000000000000000000", "contractAddress": null,
+            "feePayer": "0x0000000000000000000000000000000000000000"
         }))
         .unwrap()
     }

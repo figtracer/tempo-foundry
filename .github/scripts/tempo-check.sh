@@ -491,7 +491,7 @@ echo -e "\n=== CHISEL FORK TESTS ==="
 check_has_code() {
   local name="$1" addr="$2"
   local result
-  result=$(chisel --fork-url "$ETH_RPC_URL" eval "address($addr).code.length > 0" 2>&1 | grep -oP '(?<=Data: )(true|false)' || echo "")
+  result=$(chisel --fork-url "$ETH_RPC_URL" eval "address($addr).code.length > 0" 2>&1 | grep -oP '(?<=Value: )(true|false)' || echo "")
   if [[ "$result" != "true" ]]; then
     echo "ERROR: $name ($addr) should have code when forking Tempo"
     exit 1

@@ -103,7 +103,7 @@ use foundry_evm::{
 };
 use foundry_primitives::{
     FoundryReceiptEnvelope, FoundryTempoTxEnv, FoundryTransactionRequest, FoundryTxEnvelope,
-    FoundryTxReceipt,
+    FoundryTxReceipt, get_deposit_tx_parts,
 };
 use futures::channel::mpsc::{UnboundedSender, unbounded};
 use op_alloy_consensus::DEPOSIT_TX_TYPE_ID;
@@ -408,6 +408,7 @@ impl Backend {
         // In fork mode, precompiles are inherited from the forked origin
         if self.is_tempo() && !self.is_fork() {
             let chain_id = self.env.read().evm_env.cfg_env.chain_id;
+            let hardfork = self.hardfork();
             let timestamp = self.genesis.timestamp;
             // Get genesis accounts to fund with fee tokens
             let test_accounts: Vec<Address> = self.genesis.accounts.to_vec();
@@ -417,6 +418,7 @@ impl Backend {
                 chain_id,
                 timestamp,
                 &test_accounts,
+                hardfork,
             )
             .map_err(|e| {
                 tracing::error!(target: "backend", "failed to initialize Tempo precompiles: {e}");
@@ -1589,7 +1591,7 @@ impl Backend {
                     chain_id,
                     .. // Rest of the gas fees related fields are taken from `fee_details`
                 },
-            other: _,
+            other,
         } = request;
 
         let FeeDetails {
@@ -1662,10 +1664,12 @@ impl Backend {
             env.evm_env.cfg_env.disable_base_fee = true;
         }
 
-        // TODO: OP-stack deposit transactions not supported in Tempo mode
-        // if let Ok(deposit) = get_deposit_tx_parts(&other) {
-        //     env.tx.deposit = deposit;
-        // }
+        // Deposit transaction? (not supported in Tempo mode)
+        if !self.is_tempo() {
+            if let Ok(deposit) = get_deposit_tx_parts(&other) {
+                env.tx.deposit = deposit;
+            }
+        }
 
         env
     }

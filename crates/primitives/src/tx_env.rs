@@ -5,7 +5,7 @@
 
 use alloy_evm::{FromRecoveredTx, IntoTxEnv};
 use alloy_primitives::{Address, Bytes};
-use op_revm::OpTransaction;
+use op_revm::{OpTransaction, transaction::deposit::DepositTransactionParts};
 use revm::context::TxEnv;
 use std::ops::{Deref, DerefMut};
 use tempo_revm::TempoTxEnv;
@@ -49,17 +49,20 @@ pub struct FoundryTempoTxEnv {
     /// The RLP-encoded transaction bytes for OP-stack L1 fee calculation.
     /// This is only set when running in Optimism mode.
     pub enveloped_tx: Option<Bytes>,
+    /// OP-stack deposit transaction parts.
+    /// This is only set when running in Optimism mode with deposit transactions.
+    pub deposit: DepositTransactionParts,
 }
 
 impl FoundryTempoTxEnv {
     /// Creates a new `FoundryTempoTxEnv` from a `TempoTxEnv`.
     pub fn new(tx: TempoTxEnv) -> Self {
-        Self { inner: tx, enveloped_tx: None }
+        Self { inner: tx, enveloped_tx: None, deposit: DepositTransactionParts::default() }
     }
 
     /// Creates a new `FoundryTempoTxEnv` with enveloped tx bytes for OP-stack.
     pub fn with_enveloped_tx(tx: TempoTxEnv, enveloped_tx: Option<Bytes>) -> Self {
-        Self { inner: tx, enveloped_tx }
+        Self { inner: tx, enveloped_tx, deposit: DepositTransactionParts::default() }
     }
 
     /// Consumes the wrapper and returns the inner `TempoTxEnv`.
@@ -70,7 +73,7 @@ impl FoundryTempoTxEnv {
 
 impl From<TempoTxEnv> for FoundryTempoTxEnv {
     fn from(tx: TempoTxEnv) -> Self {
-        Self { inner: tx, enveloped_tx: None }
+        Self { inner: tx, enveloped_tx: None, deposit: DepositTransactionParts::default() }
     }
 }
 
@@ -105,7 +108,7 @@ impl IntoTxEnv<EitherTx> for FoundryTempoTxEnv {
             base: OpTransaction {
                 base: self.inner.inner.clone(),
                 enveloped_tx: self.enveloped_tx,
-                ..Default::default()
+                deposit: self.deposit,
             },
             // Preserve the full TempoTxEnv for Tempo EVM
             tempo_tx: Some(self.inner),
@@ -121,15 +124,18 @@ impl FromRecoveredTx<FoundryTxEnvelope> for FoundryTempoTxEnv {
     fn from_recovered_tx(tx: &FoundryTxEnvelope, caller: Address) -> Self {
         match tx {
             // Handle Tempo transactions natively using TempoTxEnv's FromRecoveredTx impl
-            FoundryTxEnvelope::Tempo(aa_signed) => {
-                Self { inner: TempoTxEnv::from_recovered_tx(aa_signed, caller), enveloped_tx: None }
-            }
+            FoundryTxEnvelope::Tempo(aa_signed) => Self {
+                inner: TempoTxEnv::from_recovered_tx(aa_signed, caller),
+                enveloped_tx: None,
+                deposit: DepositTransactionParts::default(),
+            },
             // For all other transaction types, convert through OpTransaction<TxEnv>
             _ => {
                 let op_tx: OpTransaction<TxEnv> = FromRecoveredTx::from_recovered_tx(tx, caller);
                 Self {
                     inner: TempoTxEnv { inner: op_tx.base, ..Default::default() },
                     enveloped_tx: op_tx.enveloped_tx,
+                    deposit: op_tx.deposit,
                 }
             }
         }

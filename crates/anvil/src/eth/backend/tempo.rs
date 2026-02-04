@@ -189,8 +189,8 @@ pub fn initialize_tempo_precompiles(
     chain_id: u64,
     timestamp: u64,
     test_accounts: &[Address],
+    hardfork: TempoHardfork,
 ) -> Result<(), TempoPrecompileError> {
-    let hardfork = TempoHardfork::default();
     let timestamp = U256::from(timestamp);
 
     let mut storage = AnvilStorageProvider::new(db, chain_id, timestamp, hardfork);

@@ -1665,10 +1665,10 @@ impl Backend {
         }
 
         // Deposit transaction? (not supported in Tempo mode)
-        if !self.is_tempo() {
-            if let Ok(deposit) = get_deposit_tx_parts(&other) {
-                env.tx.deposit = deposit;
-            }
+        if !self.is_tempo()
+            && let Ok(deposit) = get_deposit_tx_parts(&other)
+        {
+            env.tx.deposit = deposit;
         }
 
         env

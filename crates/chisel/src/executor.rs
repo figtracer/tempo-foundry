@@ -13,8 +13,7 @@ use eyre::{Result, WrapErr};
 use foundry_compilers::Artifact;
 use foundry_evm::{
     backend::Backend, decode::decode_console_logs, executors::ExecutorBuilder,
-    inspectors::CheatsConfig, tempo::initialize_tempo_precompiles_and_contracts,
-    traces::TraceMode,
+    inspectors::CheatsConfig, tempo::initialize_tempo_precompiles_and_contracts, traces::TraceMode,
 };
 use solang_parser::pt;
 use std::ops::ControlFlow;
@@ -236,8 +235,7 @@ impl SessionSource {
 
         // Initialize Tempo precompiles and contracts if we're in Tempo mode and not forking.
         // For Ethereum/Optimism hardforks, no special initialization is needed.
-        if !is_forked
-            && matches!(hardfork, Some(foundry_evm::hardforks::FoundryHardfork::Tempo(_)))
+        if !is_forked && matches!(hardfork, Some(foundry_evm::hardforks::FoundryHardfork::Tempo(_)))
         {
             initialize_tempo_precompiles_and_contracts(&mut executor, hardfork)?;
         }

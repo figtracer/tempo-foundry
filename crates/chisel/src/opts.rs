@@ -3,7 +3,10 @@ use foundry_cli::opts::{BuildOpts, EvmArgs, GlobalArgs};
 use foundry_common::version::{LONG_VERSION, SHORT_VERSION};
 use foundry_config::{
     Config,
-    figment::{self, Metadata, Profile, Provider, value::{Dict, Map, Value}},
+    figment::{
+        self, Metadata, Profile, Provider,
+        value::{Dict, Map, Value},
+    },
 };
 use foundry_evm::hardforks::FoundryHardfork;
 
@@ -66,8 +69,7 @@ impl Provider for Chisel {
         let mut dict = Dict::new();
 
         if let Some(ref hardfork_str) = self.hardfork {
-            let hardfork = FoundryHardfork::from_str(hardfork_str)
-                .map_err(|e| figment::Error::from(e.to_string()))?;
+            let hardfork = FoundryHardfork::from_str(hardfork_str).map_err(figment::Error::from)?;
             dict.insert("hardfork".to_string(), Value::serialize(hardfork)?);
         }
 

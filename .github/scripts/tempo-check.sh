@@ -483,3 +483,25 @@ kill "$ANVIL_PID" 2>/dev/null || true
 trap - EXIT
 
 echo -e "\n=== ANVIL FORK TESTS COMPLETE ==="
+
+echo -e "\n=== CHISEL FORK TESTS ==="
+# Test chisel forking the Tempo network - precompiles should be accessible from fork
+
+# Helper to check address has code via chisel fork
+check_has_code() {
+  local name="$1" addr="$2"
+  local result
+  result=$(chisel --fork-url "$ETH_RPC_URL" eval "address($addr).code.length > 0" 2>&1 | grep -oP '(?<=Data: )(true|false)' || echo "")
+  if [[ "$result" != "true" ]]; then
+    echo "ERROR: $name ($addr) should have code when forking Tempo"
+    exit 1
+  fi
+  echo "OK: $name has code"
+}
+
+check_has_code "PathUSD" "0x20C0000000000000000000000000000000000000"
+check_has_code "AlphaUSD" "0x20C0000000000000000000000000000000000001"
+check_has_code "Nonce" "0xAAAA00000000000000000000000000000000AAAA"
+check_has_code "AccountKeychain" "0xAAAAAAAA00000000000000000000000000000000"
+
+echo -e "\n=== CHISEL FORK TESTS COMPLETE ==="

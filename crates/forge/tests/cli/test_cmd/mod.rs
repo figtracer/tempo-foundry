@@ -678,6 +678,37 @@ Ran 1 test suite [ELAPSED]: 1 tests passed, 0 failed, 0 skipped (1 total tests)
 "#]]);
 });
 
+// Validates BPO1 blob gas price calculation during fork transaction replay.
+// Block 24127158 has a blob tx at index 0, target tx at index 1.
+// Forking at the target tx replays the blob tx with correct BPO1 blob base fee calculation.
+forgetest_init!(
+    #[ignore = "tempo skip - blobs not supported"]
+    fork_tx_replay_bpo1_blob_base_fee,
+    |prj, cmd| {
+        let endpoint = rpc::next_http_archive_rpc_url();
+
+        prj.add_test(
+            "BlobFork.t.sol",
+            &r#"
+import {Test} from "forge-std/Test.sol";
+
+contract BlobForkTest is Test {
+    function test_fork_with_blob_replay() public {
+        // Fork at tx index 1 in block 24127158, which replays blob tx at index 0
+        bytes32 txHash = 0xa0f349b16e0f338ee760a9954ff5dbf2a402cff3320f3fe2c3755aee8babc335;
+        vm.createSelectFork("<url>", txHash);
+        // If we get here, blob tx replay succeeded
+        assertTrue(true);
+    }
+}
+    "#
+            .replace("<url>", &endpoint),
+        );
+
+        cmd.args(["test", "-vvvv"]).assert_success();
+    }
+);
+
 // https://github.com/foundry-rs/foundry/issues/6579
 forgetest_init!(include_custom_types_in_traces, |prj, cmd| {
     prj.add_test(
@@ -888,6 +919,8 @@ Encountered a total of 1 failing tests, 0 tests succeeded
 
 Tip: Run `forge test --rerun` to retry only the 1 failed test
 
+[SEED] (use `--fuzz-seed` to reproduce)
+
 "#]]);
 });
 
@@ -938,6 +971,8 @@ Encountered 1 failing test in test/CounterInvariant.t.sol:CounterTest
 Encountered a total of 1 failing tests, 0 tests succeeded
 
 Tip: Run `forge test --rerun` to retry only the 1 failed test
+
+[SEED] (use `--fuzz-seed` to reproduce)
 
 "#]]);
 });
@@ -2693,21 +2728,18 @@ Ran 8 tests for src/AssumeNoRevertTest.t.sol:ReverterTest
 "#]]);
 });
 
-forgetest_async!(
-    #[ignore = "tempo skip - CREATE2 salt detection prompts for TTY which fails in CI"]
-    can_get_broadcast_txs,
-    |prj, cmd| {
-        foundry_test_utils::util::initialize(prj.root());
+forgetest_async!(flaky_can_get_broadcast_txs, |prj, cmd| {
+    foundry_test_utils::util::initialize(prj.root());
 
-        let (_api, handle) = spawn(NodeConfig::test().silent()).await;
+    let (_api, handle) = spawn(NodeConfig::test().silent()).await;
 
-        prj.insert_vm();
-        prj.insert_ds_test();
-        prj.insert_console();
+    prj.insert_vm();
+    prj.insert_ds_test();
+    prj.insert_console();
 
-        prj.add_source(
-            "Counter.sol",
-            r#"
+    prj.add_source(
+        "Counter.sol",
+        r#"
         contract Counter {
     uint256 public number;
 
@@ -2720,11 +2752,11 @@ forgetest_async!(
     }
 }
     "#,
-        );
+    );
 
-        prj.add_script(
-            "DeployCounter",
-            r#"
+    prj.add_script(
+        "DeployCounter",
+        r#"
         import "forge-std/Script.sol";
         import "src/Counter.sol";
 
@@ -2742,11 +2774,11 @@ forgetest_async!(
             }
         }
     "#,
-        );
+    );
 
-        prj.add_script(
-            "DeployCounterWithCreate2",
-            r#"
+    prj.add_script(
+        "DeployCounterWithCreate2",
+        r#"
         import "forge-std/Script.sol";
         import "src/Counter.sol";
 
@@ -2765,9 +2797,9 @@ forgetest_async!(
             }
         }
     "#,
-        );
+    );
 
-        let test = r#"
+    let test = r#"
         import {Vm} from "../src/Vm.sol";
         import {DSTest} from "../src/test.sol";
         import {console} from "../src/console.sol";
@@ -2855,13 +2887,27 @@ forgetest_async!(
 }
     "#;
 
-        prj.add_test("GetBroadcast", test);
+    prj.add_test("GetBroadcast", test);
 
-        let sender = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+    let sender = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 
-        cmd.args([
+    cmd.args([
+        "script",
+        "DeployCounter",
+        "--rpc-url",
+        &handle.http_endpoint(),
+        "--sender",
+        sender,
+        "--unlocked",
+        "--broadcast",
+        "--slow",
+    ])
+    .assert_success();
+
+    cmd.forge_fuse()
+        .args([
             "script",
-            "DeployCounter",
+            "DeployCounterWithCreate2",
             "--rpc-url",
             &handle.http_endpoint(),
             "--sender",
@@ -2872,28 +2918,13 @@ forgetest_async!(
         ])
         .assert_success();
 
-        cmd.forge_fuse()
-            .args([
-                "script",
-                "DeployCounterWithCreate2",
-                "--rpc-url",
-                &handle.http_endpoint(),
-                "--sender",
-                sender,
-                "--unlocked",
-                "--broadcast",
-                "--slow",
-            ])
-            .assert_success();
+    let broadcast_path = prj.root().join("broadcast");
 
-        let broadcast_path = prj.root().join("broadcast");
+    // Check if the broadcast folder exists
+    assert!(broadcast_path.exists() && broadcast_path.is_dir());
 
-        // Check if the broadcast folder exists
-        assert!(broadcast_path.exists() && broadcast_path.is_dir());
-
-        cmd.forge_fuse().args(["test", "--mc", "GetBroadcastTest", "-vvv"]).assert_success();
-    }
-);
+    cmd.forge_fuse().args(["test", "--mc", "GetBroadcastTest", "-vvv"]).assert_success();
+});
 
 // See <https://github.com/foundry-rs/foundry/issues/9297>
 forgetest_init!(
@@ -3380,14 +3411,11 @@ Traces:
 });
 
 // <https://github.com/foundry-rs/foundry/issues/10068>
-forgetest_init!(
-    #[ignore = "tempo skip - external API"]
-    can_upload_selectors_with_path,
-    |prj, cmd| {
-        prj.initialize_default_contracts();
-        prj.add_source(
-            "CounterV1.sol",
-            r#"
+forgetest_init!(flaky_can_upload_selectors_with_path, |prj, cmd| {
+    prj.initialize_default_contracts();
+    prj.add_source(
+        "CounterV1.sol",
+        r#"
 contract Counter {
     uint256 public number;
 
@@ -3400,11 +3428,11 @@ contract Counter {
     }
 }
     "#,
-        );
+    );
 
-        prj.add_source(
-            "CounterV2.sol",
-            r#"
+    prj.add_source(
+        "CounterV2.sol",
+        r#"
 contract CounterV2 {
     uint256 public number;
 
@@ -3417,44 +3445,43 @@ contract CounterV2 {
     }
 }
     "#,
-        );
+    );
 
-        // Upload Counter without path fails as there are multiple contracts with same name.
-        cmd.args(["selectors", "upload", "Counter"]).assert_failure().stderr_eq(str![[r#"
+    // Upload Counter without path fails as there are multiple contracts with same name.
+    cmd.args(["selectors", "upload", "Counter"]).assert_failure().stderr_eq(str![[r#"
 ...
 Error: Multiple contracts found with the name `Counter`
 ...
 
 "#]]);
 
-        // Upload without contract name should fail.
-        cmd.forge_fuse()
-            .args(["selectors", "upload", "src/Counter.sol"])
-            .assert_failure()
-            .stderr_eq(str![[r#"
+    // Upload without contract name should fail.
+    cmd.forge_fuse().args(["selectors", "upload", "src/Counter.sol"]).assert_failure().stderr_eq(
+        str![[r#"
 ...
 Error: No contract name provided.
 ...
 
-"#]]);
+"#]],
+    );
 
-        // Upload single CounterV2.
-        cmd.forge_fuse().args(["selectors", "upload", "CounterV2"]).assert_success().stdout_eq(
-            str![[r#"
+    // Upload single CounterV2.
+    cmd.forge_fuse().args(["selectors", "upload", "CounterV2"]).assert_success().stdout_eq(str![[
+        r#"
 ...
 Uploading selectors for CounterV2...
 ...
 Selectors successfully uploaded to OpenChain
 ...
 
-"#]],
-        );
+"#
+    ]]);
 
-        // Upload CounterV1 with path.
-        cmd.forge_fuse()
-            .args(["selectors", "upload", "src/CounterV1.sol:Counter"])
-            .assert_success()
-            .stdout_eq(str![[r#"
+    // Upload CounterV1 with path.
+    cmd.forge_fuse()
+        .args(["selectors", "upload", "src/CounterV1.sol:Counter"])
+        .assert_success()
+        .stdout_eq(str![[r#"
 ...
 Uploading selectors for Counter...
 ...
@@ -3463,11 +3490,11 @@ Selectors successfully uploaded to OpenChain
 
 "#]]);
 
-        // Upload Counter with path.
-        cmd.forge_fuse()
-            .args(["selectors", "upload", "src/Counter.sol:Counter"])
-            .assert_success()
-            .stdout_eq(str![[r#"
+    // Upload Counter with path.
+    cmd.forge_fuse()
+        .args(["selectors", "upload", "src/Counter.sol:Counter"])
+        .assert_success()
+        .stdout_eq(str![[r#"
 ...
 Uploading selectors for Counter...
 ...
@@ -3475,8 +3502,7 @@ Selectors successfully uploaded to OpenChain
 ...
 
 "#]]);
-    }
-);
+});
 
 forgetest_init!(selectors_list_cmd, |prj, cmd| {
     prj.add_source(
@@ -3850,14 +3876,11 @@ Ran 1 test suite [ELAPSED]: 2 tests passed, 0 failed, 0 skipped (2 total tests)
 });
 
 // <https://github.com/foundry-rs/foundry/issues/10544>
-forgetest_init!(
-    #[ignore = "tempo skip - uses native ETH transfer which Tempo does not support"]
-    should_not_panic_on_cool,
-    |prj, cmd| {
-        prj.initialize_default_contracts();
-        prj.add_test(
-            "Counter.t.sol",
-            r#"
+forgetest_init!(flaky_should_not_panic_on_cool, |prj, cmd| {
+    prj.initialize_default_contracts();
+    prj.add_test(
+        "Counter.t.sol",
+        r#"
 import "forge-std/Test.sol";
 import {Counter} from "../src/Counter.sol";
 
@@ -3874,9 +3897,9 @@ contract CounterTest is Test {
     }
 }
     "#,
-        );
+    );
 
-        cmd.args(["test", "--mc", "CounterTest"]).assert_failure().stdout_eq(str![[r#"
+    cmd.args(["test", "--mc", "CounterTest"]).assert_failure().stdout_eq(str![[r#"
 [COMPILING_FILES] with [SOLC_VERSION]
 [SOLC_VERSION] [ELAPSED]
 Compiler run successful!
@@ -3896,8 +3919,7 @@ Encountered a total of 1 failing tests, 0 tests succeeded
 Tip: Run `forge test --rerun` to retry only the 1 failed test
 
 "#]]);
-    }
-);
+});
 
 #[cfg(not(feature = "isolate-by-default"))]
 forgetest_init!(detailed_revert_when_calling_non_contract_address, |prj, cmd| {
@@ -4119,25 +4141,22 @@ Tip: Run `forge test --rerun` to retry only the 1 failed test
 
 // This test is a copy of `error_event_decode_with_cache` in cast/tests/cli/selectors.rs
 // but it uses `forge build` to check that the project selectors are cached by default.
-forgetest_init!(
-    #[ignore = "tempo skip - external API"]
-    build_with_selectors_cache,
-    |prj, cmd| {
-        prj.initialize_default_contracts();
-        prj.add_source(
-            "LocalProjectContract",
-            r#"
+forgetest_init!(flaky_build_with_selectors_cache, |prj, cmd| {
+    prj.initialize_default_contracts();
+    prj.add_source(
+        "LocalProjectContract",
+        r#"
 contract ContractWithCustomError {
     error AnotherValueTooHigh(uint256, address);
     event MyUniqueEventWithinLocalProject(uint256 a, address b);
 }
    "#,
-        );
-        // Build and cache project selectors.
-        cmd.forge_fuse().args(["build", "--force"]).assert_success();
+    );
+    // Build and cache project selectors.
+    cmd.forge_fuse().args(["build", "--force"]).assert_success();
 
-        // Assert cast can decode custom error with local cache.
-        cmd.cast_fuse()
+    // Assert cast can decode custom error with local cache.
+    cmd.cast_fuse()
         .args(["decode-error", "0x7191bc6200000000000000000000000000000000000000000000000000000000000000650000000000000000000000000000000000000000000000000000000000D0004F"])
         .assert_success()
         .stdout_eq(str![[r#"
@@ -4146,8 +4165,8 @@ AnotherValueTooHigh(uint256,address)
 0x0000000000000000000000000000000000D0004F
 
 "#]]);
-        // Assert cast can decode event with local cache.
-        cmd.cast_fuse()
+    // Assert cast can decode event with local cache.
+    cmd.cast_fuse()
         .args(["decode-event", "0xbd3699995dcc867b64dbb607be2c33be38df9134bef1178df13bfb9446e73104000000000000000000000000000000000000000000000000000000000000004e00000000000000000000000000000000000000000000000000000dd00000004e"])
         .assert_success()
         .stdout_eq(str![[r#"
@@ -4156,8 +4175,7 @@ MyUniqueEventWithinLocalProject(uint256,address)
 0x00000000000000000000000000000DD00000004e
 
 "#]]);
-    }
-);
+});
 
 // <https://github.com/foundry-rs/foundry/issues/11021>
 forgetest_init!(revm_27_prank_bug_fix, |prj, cmd| {

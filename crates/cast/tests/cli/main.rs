@@ -1930,7 +1930,7 @@ casttest!(mktx_raw_unsigned_no_from_missing_nonce, |_prj, cmd| {
 });
 
 casttest!(mktx_ethsign, async |_prj, cmd| {
-    let (_api, handle) = anvil::spawn(NodeConfig::test()).await;
+    let (_api, handle) = anvil::spawn(NodeConfig::test_tempo()).await;
     let rpc = handle.http_endpoint();
     cmd.args([
         "mktx",
@@ -1954,7 +1954,7 @@ casttest!(mktx_ethsign, async |_prj, cmd| {
     .assert_success()
     .stdout_eq(str![[
         r#"
-0x02f86d827a6980843b9aca008502540be4008252089400000000000000000000000000000000000000018080c001a0b8eeb1ded87b085859c510c5692bed231e3ee8b068ccf71142bbf28da0e95987a07813b676a248ae8055f28495021d78dee6695479d339a6ad9d260d9eaf20674c
+0x76f875827a69843b9aca008502540be400825208d8d79400000000000000000000000000000000000000018080c0808080808080c0b841[..]
 
 "#
     ]]);
@@ -2084,7 +2084,7 @@ Error: EIP-7702 transactions can't be CREATE transactions and require a destinat
 "#]]);
 });
 
-casttest!(storage, |_prj, cmd| {
+casttest!(flaky_storage, |_prj, cmd| {
     let rpc = next_http_archive_rpc_url();
     cmd.args(["storage", "vitalik.eth", "1", "--rpc-url", &rpc]).assert_success().stdout_eq(str![
         [r#"
@@ -2499,6 +2499,50 @@ interface Interface {
 
 "#
     ]]);
+});
+
+// tests that `cast interface --flatten` inlines inherited struct types into the interface
+// <https://github.com/foundry-rs/foundry/issues/9960>
+casttest!(interface_flatten, |prj, cmd| {
+    let interface = include_str!("../fixtures/interface_inherited_struct.json");
+
+    let path = prj.root().join("interface_inherited_struct.json");
+    fs::write(&path, interface).unwrap();
+
+    // Without --flatten, a separate library is generated for the struct
+    cmd.arg("interface").arg(&path).assert_success().stdout_eq(str![[
+        r#"// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.4;
+
+library IBase {
+    struct TestStruct {
+        address asset;
+    }
+}
+
+interface Interface {
+    function test(IBase.TestStruct memory param) external;
+}
+
+"#
+    ]]);
+
+    // With --flatten, the struct is inlined into the interface
+    cmd.cast_fuse().arg("interface").arg("--flatten").arg(&path).assert_success().stdout_eq(str![
+        [r#"// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.4;
+
+interface Interface {
+    // Types from `IBase`
+    struct TestStruct {
+        address asset;
+    }
+
+    function test(TestStruct memory param) external;
+}
+
+"#]
+    ]);
 });
 
 // tests that fetches WETH interface from etherscan
@@ -4301,6 +4345,42 @@ casttest!(cast_mktx_negative_numbers, |_prj, cmd| {
     .assert_success();
 });
 
+// Test cast mktx with EIP-4844 blob transaction (legacy format)
+casttest!(
+    #[ignore = "tempo skip - EIP-4844 not supported"]
+    cast_mktx_eip4844_blob,
+    |prj, cmd| {
+        // Create a temporary blob data file
+        let blob_data = b"dummy blob data for testing";
+        let blob_path = prj.root().join("blob_data.bin");
+        fs::write(&blob_path, blob_data).unwrap();
+
+        cmd.args([
+            "mktx",
+            "--private-key",
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "--chain",
+            "1",
+            "--nonce",
+            "0",
+            "--gas-limit",
+            "100000",
+            "--gas-price",
+            "10000000000",
+            "--priority-gas-price",
+            "1000000000",
+            "--blob",
+            "--eip4844",
+            "--blob-gas-price",
+            "1000000",
+            "--path",
+            blob_path.to_str().unwrap(),
+            "0x0000000000000000000000000000000000000001",
+        ])
+        .assert_success();
+    }
+);
+
 // Test cast mktx with EIP-7594 blob transaction (default format)
 casttest!(
     #[ignore = "tempo skip - EIP-7594 not supported"]
@@ -4602,26 +4682,22 @@ Transaction successfully executed.
 
 // https://github.com/foundry-rs/foundry/issues/11584
 // Tests that invalid hex calldata (odd length) produces a clear error message
-casttest!(
-    #[ignore = "tempo skip - mainnet RPC"]
-    cast_call_invalid_hex_calldata_error,
-    |_prj, cmd| {
-        let rpc = next_rpc_endpoint(NamedChain::Mainnet);
-        cmd.args([
-            "call",
-            "0xdead000000000000000000000000000000000000",
-            "--data",
-            "0x0", // Invalid: odd length hex
-            "--rpc-url",
-            rpc.as_str(),
-        ])
-        .assert_failure()
-        .stderr_eq(str![[r#"
+casttest!(cast_call_invalid_hex_calldata_error, |_prj, cmd| {
+    let rpc = next_rpc_endpoint(NamedChain::Mainnet);
+    cmd.args([
+        "call",
+        "0xdead000000000000000000000000000000000000",
+        "--data",
+        "0x0", // Invalid: odd length hex
+        "--rpc-url",
+        rpc.as_str(),
+    ])
+    .assert_failure()
+    .stderr_eq(str![[r#"
 Error: Invalid hex calldata '0x0': odd number of digits
 
 "#]]);
-    }
-);
+});
 
 // https://github.com/foundry-rs/foundry/issues/11584
 // Tests that valid hex calldata works correctly
@@ -4638,25 +4714,85 @@ casttest!(cast_call_valid_hex_calldata, |_prj, cmd| {
     .assert_success();
 });
 
-// https://github.com/foundry-rs/foundry/issues/11584
-// Tests that invalid hex with uppercase 0X prefix also produces clear error
-casttest!(
-    #[ignore = "tempo skip - mainnet RPC"]
-    cast_call_invalid_hex_uppercase_prefix,
-    |_prj, cmd| {
-        let rpc = next_rpc_endpoint(NamedChain::Mainnet);
-        cmd.args([
-            "call",
-            "0xdead000000000000000000000000000000000000",
-            "--data",
-            "0X1", // Invalid: odd length hex with uppercase prefix
-            "--rpc-url",
-            rpc.as_str(),
-        ])
-        .assert_failure()
-        .stderr_eq(str![[r#"
-Error: Invalid hex calldata '0X1': odd number of digits
+// tests that the --curl flag outputs a valid curl command for cast rpc
+casttest!(curl_rpc, |_prj, cmd| {
+    let rpc = "https://eth.example.com";
 
-"#]]);
-    }
-);
+    let output = cmd
+        .args(["rpc", "eth_blockNumber", "--rpc-url", rpc, "--curl"])
+        .assert_success()
+        .get_output()
+        .stdout_lossy();
+
+    // Verify curl command structure
+    assert!(output.contains("curl -X POST"));
+    assert!(output.contains("-H 'Content-Type: application/json'"));
+    assert!(output.contains("eth_blockNumber"));
+    assert!(output.contains("jsonrpc"));
+    assert!(output.contains(rpc));
+});
+
+// tests that the --curl flag outputs a valid curl command for cast block-number
+casttest!(curl_block_number, |_prj, cmd| {
+    let rpc = "https://eth.example.com";
+
+    let output = cmd
+        .args(["block-number", "--rpc-url", rpc, "--curl"])
+        .assert_success()
+        .get_output()
+        .stdout_lossy();
+
+    // Verify curl command structure
+    assert!(output.contains("curl -X POST"));
+    assert!(output.contains("eth_blockNumber"));
+    assert!(output.contains(rpc));
+});
+
+// tests that the --curl flag outputs a valid curl command for cast chain-id
+casttest!(curl_chain_id, |_prj, cmd| {
+    let rpc = "https://eth.example.com";
+
+    let output = cmd
+        .args(["chain-id", "--rpc-url", rpc, "--curl"])
+        .assert_success()
+        .get_output()
+        .stdout_lossy();
+
+    // Verify curl command structure
+    assert!(output.contains("curl -X POST"));
+    assert!(output.contains("eth_chainId"));
+    assert!(output.contains(rpc));
+});
+
+// tests that the --curl flag outputs a valid curl command for cast gas-price
+casttest!(curl_gas_price, |_prj, cmd| {
+    let rpc = "https://eth.example.com";
+
+    let output = cmd
+        .args(["gas-price", "--rpc-url", rpc, "--curl"])
+        .assert_success()
+        .get_output()
+        .stdout_lossy();
+
+    // Verify curl command structure
+    assert!(output.contains("curl -X POST"));
+    assert!(output.contains("eth_gasPrice"));
+    assert!(output.contains(rpc));
+});
+
+// tests that the --curl flag outputs a valid curl command for cast call
+casttest!(curl_call, |_prj, cmd| {
+    let rpc = "https://eth.example.com";
+    let to = "0xdead000000000000000000000000000000000000";
+
+    let output = cmd
+        .args(["call", to, "balanceOf(address)(uint256)", to, "--rpc-url", rpc, "--curl"])
+        .assert_success()
+        .get_output()
+        .stdout_lossy();
+
+    // Verify curl command structure
+    assert!(output.contains("curl -X POST"));
+    assert!(output.contains("eth_call"));
+    assert!(output.contains(rpc));
+});

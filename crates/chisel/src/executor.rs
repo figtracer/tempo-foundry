@@ -13,7 +13,8 @@ use eyre::{Result, WrapErr};
 use foundry_compilers::Artifact;
 use foundry_evm::{
     backend::Backend, decode::decode_console_logs, executors::ExecutorBuilder,
-    inspectors::CheatsConfig, traces::TraceMode,
+    inspectors::CheatsConfig, tempo::initialize_tempo_precompiles_and_contracts,
+    traces::TraceMode,
 };
 use solang_parser::pt;
 use std::ops::ControlFlow;
@@ -201,6 +202,7 @@ impl SessionSource {
     async fn build_runner(&mut self, final_pc: usize) -> Result<ChiselRunner> {
         let env = self.config.evm_opts.evm_env().await?;
 
+        let is_forked = self.config.evm_opts.fork_url.is_some();
         let backend = match self.config.backend.clone() {
             Some(backend) => backend,
             None => {
@@ -211,7 +213,8 @@ impl SessionSource {
             }
         };
 
-        let executor = ExecutorBuilder::new()
+        let hardfork = self.config.foundry_config.hardfork;
+        let mut executor = ExecutorBuilder::new()
             .inspectors(|stack| {
                 stack.chisel_state(final_pc).trace_mode(TraceMode::Call).cheatcodes(
                     CheatsConfig::new(
@@ -227,9 +230,17 @@ impl SessionSource {
             })
             .gas_limit(self.config.evm_opts.gas_limit())
             .spec_id(self.config.foundry_config.evm_spec_id())
-            .hardfork(self.config.foundry_config.hardfork)
+            .hardfork(hardfork)
             .legacy_assertions(self.config.foundry_config.legacy_assertions)
             .build(env, backend);
+
+        // Initialize Tempo precompiles and contracts if we're in Tempo mode and not forking.
+        // For Ethereum/Optimism hardforks, no special initialization is needed.
+        if !is_forked
+            && matches!(hardfork, Some(foundry_evm::hardforks::FoundryHardfork::Tempo(_)))
+        {
+            initialize_tempo_precompiles_and_contracts(&mut executor, hardfork)?;
+        }
 
         Ok(ChiselRunner::new(executor, U256::MAX, Address::ZERO, self.config.calldata.clone()))
     }

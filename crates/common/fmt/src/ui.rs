@@ -21,6 +21,11 @@ use tempo_alloy::{primitives::TempoTxEnvelope, rpc::TempoTransactionReceipt};
 /// length of the name column for pretty formatting `{:>20}{value}`
 const NAME_COLUMN_LEN: usize = 20usize;
 
+/// Trim trailing whitespace from each line (handles empty values in formatted output).
+fn trim_trailing_whitespace(s: &str) -> String {
+    s.lines().map(|line| line.trim_end()).collect::<Vec<_>>().join("\n")
+}
+
 /// Helper trait to format Ethereum types.
 ///
 /// # Examples
@@ -233,7 +238,7 @@ blobGasUsed          {}",
         // additional captured fields
         pretty.push_str(&other.pretty());
 
-        pretty
+        trim_trailing_whitespace(&pretty)
     }
 }
 
@@ -299,7 +304,7 @@ type                 {}",
             pretty.push_str(&format!("\nto                   {}", to.pretty()));
         }
 
-        pretty
+        trim_trailing_whitespace(&pretty)
     }
 }
 
@@ -739,7 +744,7 @@ type                 {}
 }
 impl UIfmt for Transaction {
     fn pretty(&self) -> String {
-        match &self.inner.inner() {
+        let s = match &self.inner.inner() {
             TxEnvelope::Eip2930(tx) => format!(
                 "
 accessList           {}
@@ -960,7 +965,8 @@ value                {}",
                     .unwrap_or_default(),
                 self.value().pretty(),
             ),
-        }
+        };
+        trim_trailing_whitespace(&s)
     }
 }
 
@@ -1134,7 +1140,7 @@ blobGasUsed          {}",
         // additional captured fields
         pretty.push_str(&other.pretty());
 
-        pretty
+        trim_trailing_whitespace(&pretty)
     }
 }
 

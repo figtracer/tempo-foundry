@@ -24,10 +24,10 @@ use crate::eth::{
 /// Maximum number of entries in the fee history cache
 pub const MAX_FEE_HISTORY_CACHE_SIZE: u64 = 2048u64;
 
-/// Initial base fee for EIP-1559 blocks.
+/// Initial base fee for EIP-1559 blocks (1 gwei).
 pub const INITIAL_BASE_FEE: u64 = 1_000_000_000;
 
-/// Initial default gas price for the first block
+/// Initial default gas price for the first block.
 pub const INITIAL_GAS_PRICE: u128 = 1_875_000_000;
 
 /// Bounds the amount the base fee can change between blocks.
@@ -296,7 +296,7 @@ impl FeeHistoryService {
                 .collect();
 
             // sort by effective reward asc
-            transactions.sort_by(|(_, a), (_, b)| a.cmp(b));
+            transactions.sort_by_key(|(_, a)| *a);
 
             // calculate percentile rewards
             item.rewards = reward_percentiles

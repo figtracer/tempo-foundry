@@ -6,6 +6,7 @@ use alloy_primitives::{Address, B256, Signature, map::AddressHashMap};
 use alloy_signer::Signer as AlloySigner;
 use alloy_signer_local::PrivateKeySigner;
 use foundry_primitives::{FoundryTxEnvelope, FoundryTypedTx};
+use tempo_primitives::{AASigned, TempoSignature, transaction::PrimitiveSignature};
 
 /// A transaction signer
 #[async_trait::async_trait]
@@ -106,8 +107,7 @@ impl Signer for DevSigner {
             FoundryTypedTx::Deposit(_) => {
                 unreachable!("op deposit txs should not be signed")
             }
-            // TODO(onbjerg): we should impl support for Tempo transactions
-            FoundryTypedTx::Tempo(_) => todo!(),
+            FoundryTypedTx::Tempo(mut tx) => Ok(signer.sign_transaction_sync(&mut tx)?),
         }
     }
 }
@@ -128,8 +128,11 @@ pub fn build_typed_transaction(
         FoundryTypedTx::Eip7702(tx) => FoundryTxEnvelope::Eip7702(tx.into_signed(signature)),
         FoundryTypedTx::Eip4844(tx) => FoundryTxEnvelope::Eip4844(tx.into_signed(signature)),
         FoundryTypedTx::Deposit(tx) => FoundryTxEnvelope::Deposit(Sealed::new(tx)),
-        // TODO(onbjerg): we should impl support for Tempo transactions
-        FoundryTypedTx::Tempo(_) => todo!(),
+        FoundryTypedTx::Tempo(tx) => {
+            // Wrap the alloy Signature in Tempo's signature types
+            let tempo_sig = TempoSignature::Primitive(PrimitiveSignature::Secp256k1(signature));
+            FoundryTxEnvelope::Tempo(AASigned::new_unhashed(tx, tempo_sig))
+        }
     };
 
     Ok(tx)

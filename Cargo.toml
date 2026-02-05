@@ -100,13 +100,12 @@ lto = "fat"
 codegen-units = 1
 
 # Coverage-guided fuzzing of Tempo precompiles.
-# Inherits release performance but disables LTO and stripping so that
-# SanitizerCoverage instrumentation is preserved in the final binary.
-# Build with: cargo build --profile fuzz
-# The sancov RUSTFLAGS are set automatically via .cargo/config.toml [profile.fuzz].
+# Only tempo-precompiles is compiled with sancov (via RUSTC_WRAPPER), so thin
+# LTO is safe — it won't inline away the sancov callbacks from that crate.
+# Build with: ./scripts/build-fuzz.sh
 [profile.fuzz]
 inherits = "release"
-lto = false
+lto = "thin"
 strip = "none"
 debug = "line-tables-only"
 

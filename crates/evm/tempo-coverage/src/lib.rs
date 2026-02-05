@@ -1,15 +1,17 @@
 //! Tempo precompile coverage feedback for coverage-guided fuzzing.
 //!
-//! Provides SanitizerCoverage callbacks and a thread-local coverage map pointer
-//! that can be set by the fuzzing executor to collect edge coverage from Tempo precompile code.
+//! Provides SanitizerCoverage callbacks and a coverage map pointer that can be
+//! set by the fuzzing executor to collect edge coverage from Tempo precompile
+//! code.
+//!
+//! Only the `tempo-precompiles` crate is compiled with sancov instrumentation
+//! (via the `RUSTC_WRAPPER` in `scripts/sancov-rustc-wrapper.sh`), so the
+//! callbacks only fire for precompile code paths — no runtime filtering needed.
 
 use std::sync::atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering};
 
 pub const COVERAGE_MAP_SIZE: usize = 65536;
 
-// Use atomics instead of thread-locals so that sancov callbacks are safe to
-// call during static initialization (before thread-locals are available).
-// Coverage is single-threaded per fuzz run, so relaxed ordering is fine.
 static COVERAGE_MAP_PTR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 static COVERAGE_MAP_LEN: AtomicUsize = AtomicUsize::new(0);
 

@@ -113,6 +113,12 @@ pub struct FuzzCorpusConfig {
     pub corpus_min_size: usize,
     /// Whether to collect and display edge coverage metrics.
     pub show_edge_coverage: bool,
+    /// Whether to collect Tempo Rust precompile coverage via SanitizerCoverage.
+    /// When enabled, coverage from Tempo precompile execution is fed into the
+    /// same hitcount map used by the EVM edge coverage, making the fuzzer
+    /// coverage-guided for precompile code paths.
+    /// Requires building with sancov RUSTFLAGS (see docs/tempo-coverage.md).
+    pub tempo_precompile_coverage: bool,
 }
 
 impl FuzzCorpusConfig {
@@ -124,7 +130,12 @@ impl FuzzCorpusConfig {
 
     /// Whether edge coverage should be collected and displayed.
     pub fn collect_edge_coverage(&self) -> bool {
-        self.corpus_dir.is_some() || self.show_edge_coverage
+        self.corpus_dir.is_some() || self.show_edge_coverage || self.tempo_precompile_coverage
+    }
+
+    /// Whether Tempo precompile coverage collection is enabled.
+    pub fn collect_tempo_precompile_coverage(&self) -> bool {
+        self.tempo_precompile_coverage && self.collect_edge_coverage()
     }
 
     /// Whether coverage guided fuzzing is enabled.
@@ -141,6 +152,7 @@ impl Default for FuzzCorpusConfig {
             corpus_min_mutations: 5,
             corpus_min_size: 0,
             show_edge_coverage: false,
+            tempo_precompile_coverage: false,
         }
     }
 }

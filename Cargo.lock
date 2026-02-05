@@ -5263,6 +5263,7 @@ dependencies = [
  "foundry-evm-hardforks",
  "foundry-evm-networks",
  "foundry-evm-traces",
+ "foundry-tempo-coverage",
  "indicatif",
  "parking_lot",
  "proptest",
@@ -5524,6 +5525,10 @@ dependencies = [
  "thiserror 2.0.18",
  "unicode-xid",
 ]
+
+[[package]]
+name = "foundry-tempo-coverage"
+version = "1.6.0"
 
 [[package]]
 name = "foundry-test-utils"

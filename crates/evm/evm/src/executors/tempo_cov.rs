@@ -23,13 +23,18 @@ impl TempoCoverageGuard {
             let len = buf.len();
             foundry_tempo_coverage::set_coverage_map(ptr, len);
         });
+        foundry_tempo_coverage::clear_cmp_operands();
         Self
     }
 
     /// Merge Tempo precompile coverage hits into the `RawCallResult`'s edge coverage.
     ///
-    /// If the result already has an `edge_coverage` map (from `EdgeCovInspector`), Tempo precompile hits
-    /// are added into it. If not, the Tempo precompile coverage buffer becomes the edge coverage.
+    /// If the result already has an `edge_coverage` map (from `EdgeCovInspector`), Tempo precompile
+    /// hits are added into it. If not, the Tempo precompile coverage buffer becomes the edge
+    /// coverage.
+    ///
+    /// Also drains any comparison operands captured by trace-cmp callbacks and attaches them
+    /// to the result for injection into the fuzz dictionary.
     pub(super) fn merge_into(result: &mut RawCallResult) {
         TEMPO_COV_BUFFER.with(|buf| {
             let buf = buf.borrow();
@@ -49,6 +54,11 @@ impl TempoCoverageGuard {
                 }
             }
         });
+
+        let cmp_values = foundry_tempo_coverage::drain_cmp_operands();
+        if !cmp_values.is_empty() {
+            result.tempo_cmp_values = Some(cmp_values);
+        }
     }
 }
 

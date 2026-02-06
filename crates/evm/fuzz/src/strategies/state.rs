@@ -88,6 +88,15 @@ impl EvmFuzzState {
         }
     }
 
+    /// Collects values that persist across invariant runs (not reverted).
+    /// Used for trace-cmp operands that should compound over time.
+    pub fn collect_persistent_values(&self, values: impl IntoIterator<Item = B256>) {
+        let mut dict = self.inner.write();
+        for value in values {
+            dict.insert_persistent_value(value);
+        }
+    }
+
     /// Collects state changes from a [StateChangeset] and logs into an [EvmFuzzState] according to
     /// the given [FuzzDictionaryConfig].
     pub fn collect_values_from_call(
@@ -139,11 +148,17 @@ impl EvmFuzzState {
     }
 }
 
+/// Maximum number of persistent values (trace-cmp operands) retained across runs.
+const MAX_PERSISTENT_VALUES: usize = 2048;
+
 // We're using `IndexSet` to have a stable element order when restoring persisted state, as well as
 // for performance when iterating over the sets.
 pub struct FuzzDictionary {
     /// Collected state values.
     state_values: B256IndexSet,
+    /// Persistent values that survive `revert()` across invariant runs.
+    /// Used for trace-cmp operands that should compound over time.
+    persistent_values: B256IndexSet,
     /// Addresses that already had their PUSH bytes collected.
     addresses: AddressIndexSet,
     /// Configuration for the dictionary.
@@ -173,6 +188,7 @@ impl fmt::Debug for FuzzDictionary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FuzzDictionary")
             .field("state_values", &self.state_values.len())
+            .field("persistent_values", &self.persistent_values.len())
             .field("addresses", &self.addresses)
             .finish()
     }
@@ -191,6 +207,7 @@ impl FuzzDictionary {
             samples_seeded: false,
 
             state_values: Default::default(),
+            persistent_values: Default::default(),
             addresses: Default::default(),
             db_state_values: Default::default(),
             db_addresses: Default::default(),
@@ -420,6 +437,18 @@ impl FuzzDictionary {
         insert
     }
 
+    /// Insert a persistent value that survives `revert()` across invariant runs.
+    /// Used for trace-cmp operands that should compound over time.
+    /// Capped at [`MAX_PERSISTENT_VALUES`] to prevent unbounded growth.
+    fn insert_persistent_value(&mut self, value: B256) {
+        if self.persistent_values.len() >= MAX_PERSISTENT_VALUES {
+            return;
+        }
+        if self.persistent_values.insert(value) && self.state_values.insert(value) {
+            self.db_state_values += 1;
+        }
+    }
+
     fn insert_value_u256(&mut self, value: U256) -> bool {
         // Also add the value below and above the push value to the dictionary.
         let one = U256::from(1);
@@ -513,6 +542,7 @@ impl FuzzDictionary {
             addresses.len = self.addresses.len(),
             sample.len = self.sample_values.len(),
             state.len = self.state_values.len(),
+            persistent.len = self.persistent_values.len(),
             state.misses = self.misses,
             state.hits = self.hits,
             "FuzzDictionary stats",

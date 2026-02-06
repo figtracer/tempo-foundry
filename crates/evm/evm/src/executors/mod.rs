@@ -928,6 +928,9 @@ pub struct RawCallResult {
     pub line_coverage: Option<HitMaps>,
     /// The edge coverage info collected during the call
     pub edge_coverage: Option<Vec<u8>>,
+    /// Comparison operands captured from Tempo precompile trace-cmp callbacks.
+    /// Each entry is a 32-byte big-endian value observed at a comparison site.
+    pub tempo_cmp_values: Option<Vec<[u8; 32]>>,
     /// Scripted transactions generated from this call
     pub transactions: Option<BroadcastableTransactions>,
     /// The changeset of the state.
@@ -958,6 +961,7 @@ impl Default for RawCallResult {
             traces: None,
             line_coverage: None,
             edge_coverage: None,
+            tempo_cmp_values: None,
             transactions: None,
             state_changeset: HashMap::default(),
             env: Env::default(),
@@ -1163,6 +1167,7 @@ fn convert_executed_result(
         traces,
         line_coverage,
         edge_coverage,
+        tempo_cmp_values: None,
         transactions,
         state_changeset,
         env,

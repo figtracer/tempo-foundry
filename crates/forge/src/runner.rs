@@ -746,11 +746,9 @@ impl<'a> FunctionRunner<'a> {
         executor
             .inspector_mut()
             .collect_edge_coverage(invariant_config.corpus.collect_edge_coverage());
-        executor
-            .inspector_mut()
-            .collect_tempo_precompile_coverage(
-                invariant_config.corpus.collect_tempo_precompile_coverage(),
-            );
+        executor.inspector_mut().collect_tempo_precompile_coverage(
+            invariant_config.corpus.collect_tempo_precompile_coverage(),
+        );
         let mut config = invariant_config.clone();
         let (failure_dir, failure_file) = test_paths(
             &mut config.corpus,
@@ -1046,11 +1044,9 @@ impl<'a> FunctionRunner<'a> {
         // Enable edge coverage if running with coverage guided fuzzing or with edge coverage
         // metrics (useful for benchmarking the fuzzer).
         executor.inspector_mut().collect_edge_coverage(fuzz_config.corpus.collect_edge_coverage());
-        executor
-            .inspector_mut()
-            .collect_tempo_precompile_coverage(
-                fuzz_config.corpus.collect_tempo_precompile_coverage(),
-            );
+        executor.inspector_mut().collect_tempo_precompile_coverage(
+            fuzz_config.corpus.collect_tempo_precompile_coverage(),
+        );
         // Load persisted counterexample, if any.
         let persisted_failure =
             foundry_common::fs::read_json_file::<BaseCounterExample>(failure_file.as_path()).ok();

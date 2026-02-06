@@ -494,6 +494,13 @@ impl WorkerCorpus {
         if !self.in_memory_corpus.is_empty() {
             self.evict_oldest_corpus()?;
 
+            // 10% of the time, generate a fresh random sequence instead of mutating corpus.
+            // This prevents corpus modes from missing paths that pure random exploration finds.
+            if test_runner.rng().random_ratio(1, 10) {
+                new_seq.push(self.new_tx(test_runner)?);
+                return Ok(new_seq);
+            }
+
             let mutation_type = self
                 .mutation_generator
                 .new_tree(test_runner)
@@ -588,6 +595,24 @@ impl WorkerCorpus {
                         if !function.inputs.is_empty() {
                             self.abi_mutate(tx, function, test_runner, fuzz_state)?;
                         }
+                    }
+                }
+            }
+
+            // Havoc post-pass: after structural mutations, also mutate args of
+            // random calls (~30% per call) to inject dictionary values.
+            if !matches!(mutation_type, MutationType::Abi) && !new_seq.is_empty() {
+                let havoc_indices: Vec<usize> =
+                    (0..new_seq.len()).filter(|_| test_runner.rng().random_ratio(3, 10)).collect();
+                for idx in havoc_indices {
+                    let tx = &mut new_seq[idx];
+                    let targets = targeted_contracts.targets.lock();
+                    if let (_, Some(function)) = targets.fuzzed_artifacts(tx)
+                        && !function.inputs.is_empty()
+                    {
+                        let function = function.clone();
+                        drop(targets);
+                        let _ = self.abi_mutate(tx, &function, test_runner, fuzz_state);
                     }
                 }
             }

@@ -22,10 +22,13 @@ done
 SANCOV_CRATES="tempo_precompiles"
 
 if [ -n "$CRATE_NAME" ] && echo "$SANCOV_CRATES" | grep -qw "$CRATE_NAME"; then
-    exec "$RUSTC" "$@" \
-        -Cpasses=sancov-module \
-        -Cllvm-args=-sanitizer-coverage-level=3 \
+    EXTRA_FLAGS=(
+        -Cpasses=sancov-module
+        -Cllvm-args=-sanitizer-coverage-level=3
         -Cllvm-args=-sanitizer-coverage-trace-pc-guard
+        -Cllvm-args=-sanitizer-coverage-trace-compares
+    )
+    exec "$RUSTC" "$@" "${EXTRA_FLAGS[@]}"
 else
     exec "$RUSTC" "$@"
 fi

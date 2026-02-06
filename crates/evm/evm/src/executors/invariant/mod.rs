@@ -1230,6 +1230,14 @@ fn collect_data(
         run_depth,
     );
 
+    // Inject Tempo precompile comparison operands into the fuzz dictionary.
+    // These are persisted across runs so they compound over time.
+    if let Some(cmp_values) = &call_result.tempo_cmp_values {
+        invariant_test
+            .fuzz_state
+            .collect_persistent_values(cmp_values.iter().map(|v| alloy_primitives::B256::from(*v)));
+    }
+
     // Re-add changes
     if let Some(changed) = sender_changeset {
         state_changeset.insert(tx.sender, changed);

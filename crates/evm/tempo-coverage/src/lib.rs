@@ -102,13 +102,19 @@ pub unsafe extern "C" fn __sanitizer_cov_trace_pc_guard(guard: *mut u32) {
 
 const MAX_CMP_OPERANDS: usize = 512;
 
+#[derive(Clone, Copy, Debug)]
+pub struct CmpSample {
+    pub width: u8,
+    pub value: [u8; 32],
+}
+
 thread_local! {
-    static CMP_OPERANDS: std::cell::RefCell<Vec<[u8; 32]>> =
+    static CMP_OPERANDS: std::cell::RefCell<Vec<CmpSample>> =
         const { std::cell::RefCell::new(Vec::new()) };
 }
 
 #[inline(always)]
-fn record_cmp_u64(arg1: u64, arg2: u64) {
+fn record_cmp(width: u8, arg1: u64, arg2: u64) {
     if !is_active() {
         return;
     }
@@ -123,17 +129,17 @@ fn record_cmp_u64(arg1: u64, arg2: u64) {
         if arg1 != 0 {
             let mut buf = [0u8; 32];
             buf[24..].copy_from_slice(&arg1.to_be_bytes());
-            ops.push(buf);
+            ops.push(CmpSample { width, value: buf });
         }
         if arg2 != 0 && arg2 != arg1 {
             let mut buf = [0u8; 32];
             buf[24..].copy_from_slice(&arg2.to_be_bytes());
-            ops.push(buf);
+            ops.push(CmpSample { width, value: buf });
         }
     });
 }
 
-pub fn drain_cmp_operands() -> Vec<[u8; 32]> {
+pub fn drain_cmp_operands() -> Vec<CmpSample> {
     CMP_OPERANDS.with(|ops| {
         let mut ops = ops.borrow_mut();
         std::mem::take(&mut *ops)
@@ -149,7 +155,7 @@ pub fn clear_cmp_operands() {
 /// Called by LLVM SanitizerCoverage at 1-byte comparison instructions.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn __sanitizer_cov_trace_cmp1(arg1: u8, arg2: u8) {
-    record_cmp_u64(arg1 as u64, arg2 as u64);
+    record_cmp(8, arg1 as u64, arg2 as u64);
 }
 
 /// # Safety
@@ -157,7 +163,7 @@ pub unsafe extern "C" fn __sanitizer_cov_trace_cmp1(arg1: u8, arg2: u8) {
 /// Called by LLVM SanitizerCoverage at 2-byte comparison instructions.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn __sanitizer_cov_trace_cmp2(arg1: u16, arg2: u16) {
-    record_cmp_u64(arg1 as u64, arg2 as u64);
+    record_cmp(16, arg1 as u64, arg2 as u64);
 }
 
 /// # Safety
@@ -165,7 +171,7 @@ pub unsafe extern "C" fn __sanitizer_cov_trace_cmp2(arg1: u16, arg2: u16) {
 /// Called by LLVM SanitizerCoverage at 4-byte comparison instructions.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn __sanitizer_cov_trace_cmp4(arg1: u32, arg2: u32) {
-    record_cmp_u64(arg1 as u64, arg2 as u64);
+    record_cmp(32, arg1 as u64, arg2 as u64);
 }
 
 /// # Safety
@@ -173,7 +179,7 @@ pub unsafe extern "C" fn __sanitizer_cov_trace_cmp4(arg1: u32, arg2: u32) {
 /// Called by LLVM SanitizerCoverage at 8-byte comparison instructions.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn __sanitizer_cov_trace_cmp8(arg1: u64, arg2: u64) {
-    record_cmp_u64(arg1, arg2);
+    record_cmp(64, arg1, arg2);
 }
 
 /// # Safety
@@ -181,7 +187,7 @@ pub unsafe extern "C" fn __sanitizer_cov_trace_cmp8(arg1: u64, arg2: u64) {
 /// Called by LLVM SanitizerCoverage at 1-byte constant comparison instructions.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn __sanitizer_cov_trace_const_cmp1(arg1: u8, arg2: u8) {
-    record_cmp_u64(arg1 as u64, arg2 as u64);
+    record_cmp(8, arg1 as u64, arg2 as u64);
 }
 
 /// # Safety
@@ -189,7 +195,7 @@ pub unsafe extern "C" fn __sanitizer_cov_trace_const_cmp1(arg1: u8, arg2: u8) {
 /// Called by LLVM SanitizerCoverage at 2-byte constant comparison instructions.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn __sanitizer_cov_trace_const_cmp2(arg1: u16, arg2: u16) {
-    record_cmp_u64(arg1 as u64, arg2 as u64);
+    record_cmp(16, arg1 as u64, arg2 as u64);
 }
 
 /// # Safety
@@ -197,7 +203,7 @@ pub unsafe extern "C" fn __sanitizer_cov_trace_const_cmp2(arg1: u16, arg2: u16) 
 /// Called by LLVM SanitizerCoverage at 4-byte constant comparison instructions.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn __sanitizer_cov_trace_const_cmp4(arg1: u32, arg2: u32) {
-    record_cmp_u64(arg1 as u64, arg2 as u64);
+    record_cmp(32, arg1 as u64, arg2 as u64);
 }
 
 /// # Safety
@@ -205,7 +211,7 @@ pub unsafe extern "C" fn __sanitizer_cov_trace_const_cmp4(arg1: u32, arg2: u32) 
 /// Called by LLVM SanitizerCoverage at 8-byte constant comparison instructions.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn __sanitizer_cov_trace_const_cmp8(arg1: u64, arg2: u64) {
-    record_cmp_u64(arg1, arg2);
+    record_cmp(64, arg1, arg2);
 }
 
 /// # Safety
@@ -221,6 +227,6 @@ pub unsafe extern "C" fn __sanitizer_cov_trace_switch(val: u64, cases: *const u6
     let n = unsafe { *cases } as usize;
     for i in 0..n.min(16) {
         let case_val = unsafe { *cases.add(2 + i) };
-        record_cmp_u64(val, case_val);
+        record_cmp(64, val, case_val);
     }
 }

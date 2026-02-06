@@ -97,6 +97,18 @@ impl EvmFuzzState {
         }
     }
 
+    /// Collects typed trace-cmp operands that persist across invariant runs.
+    /// Each entry is a `(width_bits, value)` pair from sancov trace-cmp callbacks.
+    /// Values are inserted into both `persistent_values` (untyped) and `sample_values`
+    /// (typed by width) with promotion to larger Solidity integer types.
+    pub fn collect_typed_cmp_values(&self, values: impl IntoIterator<Item = (u8, B256)>) {
+        let mut dict = self.inner.write();
+        for (width, value) in values {
+            dict.insert_persistent_value(value);
+            dict.insert_typed_cmp_value(width, value);
+        }
+    }
+
     /// Collects state changes from a [StateChangeset] and logs into an [EvmFuzzState] according to
     /// the given [FuzzDictionaryConfig].
     pub fn collect_values_from_call(
@@ -446,6 +458,39 @@ impl FuzzDictionary {
         }
         if self.persistent_values.insert(value) && self.state_values.insert(value) {
             self.db_state_values += 1;
+        }
+    }
+
+    /// Insert a typed trace-cmp value into the `sample_values` map.
+    /// Maps sancov width to `DynSolType` buckets and promotes to larger types.
+    fn insert_typed_cmp_value(&mut self, width: u8, value: B256) {
+        if !self.samples_seeded {
+            self.seed_samples();
+        }
+
+        const MAX_TYPED_CMP_PER_BUCKET: usize = 1024;
+
+        let native_type = match width {
+            8 => DynSolType::Uint(8),
+            16 => DynSolType::Uint(16),
+            32 => DynSolType::Uint(32),
+            64 => DynSolType::Uint(64),
+            _ => DynSolType::Uint(256),
+        };
+
+        let insert = |map: &mut HashMap<DynSolType, B256IndexSet>, ty: DynSolType, val: B256| {
+            let bucket = map.entry(ty).or_default();
+            if bucket.len() < MAX_TYPED_CMP_PER_BUCKET {
+                bucket.insert(val);
+            }
+        };
+
+        insert(&mut self.sample_values, native_type, value);
+
+        if width <= 64 {
+            insert(&mut self.sample_values, DynSolType::Uint(128), value);
+            insert(&mut self.sample_values, DynSolType::Uint(256), value);
+            insert(&mut self.sample_values, DynSolType::Int(256), value);
         }
     }
 

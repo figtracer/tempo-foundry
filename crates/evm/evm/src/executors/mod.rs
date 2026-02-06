@@ -929,8 +929,8 @@ pub struct RawCallResult {
     /// The edge coverage info collected during the call
     pub edge_coverage: Option<Vec<u8>>,
     /// Comparison operands captured from Tempo precompile trace-cmp callbacks.
-    /// Each entry is a 32-byte big-endian value observed at a comparison site.
-    pub tempo_cmp_values: Option<Vec<[u8; 32]>>,
+    /// Each entry contains a width hint and a 32-byte big-endian value.
+    pub tempo_cmp_values: Option<Vec<foundry_tempo_coverage::CmpSample>>,
     /// Scripted transactions generated from this call
     pub transactions: Option<BroadcastableTransactions>,
     /// The changeset of the state.

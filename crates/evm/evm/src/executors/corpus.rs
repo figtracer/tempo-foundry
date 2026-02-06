@@ -70,6 +70,11 @@ const SYNC_DIR: &str = "sync";
 const FAVORABILITY_THRESHOLD: f64 = 0.3;
 const COVERAGE_MAP_SIZE: usize = 65536;
 
+const PRODUCTIVITY_SMOOTHING_ALPHA: f64 = 1.0;
+const PRODUCTIVITY_SMOOTHING_BETA: f64 = 10.0;
+const WEIGHT_EPSILON: f64 = 0.01;
+const EXPLORE_PROBABILITY: u32 = 10;
+
 /// Threshold for compressing corpus entries.
 /// 4KiB is usually the minimum file size on popular file systems.
 const GZIP_THRESHOLD: usize = 4 * 1024;
@@ -507,11 +512,12 @@ impl WorkerCorpus {
                 .map_err(|err| eyre!("Could not generate mutation type {err}"))?
                 .current();
 
-            let rng = test_runner.rng();
-            let corpus_len = self.in_memory_corpus.len();
-            let primary = &self.in_memory_corpus[rng.random_range(0..corpus_len)];
-            let secondary = &self.in_memory_corpus[rng.random_range(0..corpus_len)];
+            let primary_idx = self.select_weighted(test_runner.rng());
+            let secondary_idx = self.select_weighted(test_runner.rng());
+            let primary = &self.in_memory_corpus[primary_idx];
+            let secondary = &self.in_memory_corpus[secondary_idx];
 
+            let rng = test_runner.rng();
             match mutation_type {
                 MutationType::Splice => {
                     trace!(target: "corpus", "splice {} and {}", primary.uuid, secondary.uuid);
@@ -644,8 +650,8 @@ impl WorkerCorpus {
         self.evict_oldest_corpus()?;
 
         let tx = if !self.in_memory_corpus.is_empty() {
-            let corpus = &self.in_memory_corpus
-                [test_runner.rng().random_range(0..self.in_memory_corpus.len())];
+            let idx = self.select_weighted(test_runner.rng());
+            let corpus = &self.in_memory_corpus[idx];
             self.current_mutated = Some(corpus.uuid);
             let mut tx = corpus.tx_seq.first().unwrap().clone();
             self.abi_mutate(&mut tx, function, test_runner, fuzz_state)?;
@@ -693,6 +699,50 @@ impl WorkerCorpus {
 
         // Continue with the next call initial sequence.
         Ok(sequence[depth].clone())
+    }
+
+    /// Select a corpus entry index using weighted sampling based on smoothed productivity.
+    ///
+    /// Weight = epsilon + (new_finds + alpha) / (total_mutations + beta)
+    ///
+    /// With `EXPLORE_PROBABILITY`% chance of uniform random selection (anti-starvation).
+    /// Entries with `total_mutations == 0` are always prioritized (unseen seeds).
+    fn select_weighted(&self, rng: &mut impl Rng) -> usize {
+        let corpus = &self.in_memory_corpus;
+        debug_assert!(!corpus.is_empty());
+
+        let unseen: Vec<usize> = corpus
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.total_mutations == 0)
+            .map(|(i, _)| i)
+            .collect();
+        if !unseen.is_empty() {
+            return unseen[rng.random_range(0..unseen.len())];
+        }
+
+        if rng.random_ratio(EXPLORE_PROBABILITY, 100) {
+            return rng.random_range(0..corpus.len());
+        }
+
+        let weights: Vec<f64> = corpus
+            .iter()
+            .map(|e| {
+                let productivity = (e.new_finds_produced as f64 + PRODUCTIVITY_SMOOTHING_ALPHA)
+                    / (e.total_mutations as f64 + PRODUCTIVITY_SMOOTHING_BETA);
+                WEIGHT_EPSILON + productivity
+            })
+            .collect();
+
+        let total: f64 = weights.iter().sum();
+        let mut r = rng.random_range(0.0..total);
+        for (i, w) in weights.iter().enumerate() {
+            r -= w;
+            if r <= 0.0 {
+                return i;
+            }
+        }
+        corpus.len() - 1
     }
 
     /// Flush the oldest corpus mutated more than configured max mutations unless they are

@@ -339,7 +339,8 @@ pub struct InspectorStackInner {
     pub tracer: Option<Box<TracingInspector>>,
 
     // InspectorExt and other internal data.
-    pub tempo_precompile_coverage: bool,
+    pub tempo_precompile_edges: bool,
+    pub tempo_precompile_trace_cmp: bool,
     pub enable_isolation: bool,
     pub networks: NetworkConfigs,
     pub create2_deployer: Address,
@@ -463,10 +464,16 @@ impl InspectorStack {
         self.edge_coverage = yes.then(EdgeCovInspector::new).map(Into::into);
     }
 
-    /// Set whether to enable Tempo precompile coverage collection.
+    /// Set whether to enable Tempo precompile edge coverage collection.
     #[inline]
-    pub fn collect_tempo_precompile_coverage(&mut self, yes: bool) {
-        self.tempo_precompile_coverage = yes;
+    pub fn collect_tempo_precompile_edges(&mut self, yes: bool) {
+        self.tempo_precompile_edges = yes;
+    }
+
+    /// Set whether to enable Tempo precompile trace-cmp capture.
+    #[inline]
+    pub fn collect_tempo_precompile_trace_cmp(&mut self, yes: bool) {
+        self.tempo_precompile_trace_cmp = yes;
     }
 
     /// Set whether to enable call isolation.

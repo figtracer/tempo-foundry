@@ -13,7 +13,8 @@
 #
 # In your project's foundry.toml, enable:
 #   [invariant]
-#   tempo_precompile_coverage = true
+#   tempo_precompile_edges = true
+#   tempo_precompile_trace_cmp = true
 #   corpus_dir = "corpus/invariant"
 
 set -euo pipefail

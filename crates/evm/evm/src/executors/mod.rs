@@ -559,16 +559,22 @@ impl Executor {
     #[instrument(name = "call", level = "debug", skip_all)]
     pub fn call_with_env(&self, mut env: Env) -> eyre::Result<RawCallResult> {
         let mut stack = self.inspector().clone();
-        let tempo_cov = stack.inner.tempo_precompile_coverage;
+        let tempo_edges = stack.inner.tempo_precompile_edges;
+        let tempo_trace_cmp = stack.inner.tempo_precompile_trace_cmp;
+        let tempo_active = tempo_edges || tempo_trace_cmp;
         let mut backend = CowBackend::new_borrowed(self.backend());
         let result = {
-            let _guard = tempo_cov.then(TempoCoverageGuard::new);
+            let _guard =
+                tempo_active.then(|| TempoCoverageGuard::new(tempo_edges, tempo_trace_cmp));
             backend.inspect(&mut env, stack.as_inspector())?
         };
         let mut result =
             convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())?;
-        if tempo_cov {
-            TempoCoverageGuard::merge_into(&mut result);
+        if tempo_edges {
+            TempoCoverageGuard::merge_edges_into(&mut result);
+        }
+        if tempo_trace_cmp {
+            TempoCoverageGuard::drain_cmp_into(&mut result);
         }
         Ok(result)
     }
@@ -577,16 +583,22 @@ impl Executor {
     #[instrument(name = "transact", level = "debug", skip_all)]
     pub fn transact_with_env(&mut self, mut env: Env) -> eyre::Result<RawCallResult> {
         let mut stack = self.inspector().clone();
-        let tempo_cov = stack.inner.tempo_precompile_coverage;
+        let tempo_edges = stack.inner.tempo_precompile_edges;
+        let tempo_trace_cmp = stack.inner.tempo_precompile_trace_cmp;
+        let tempo_active = tempo_edges || tempo_trace_cmp;
         let backend = self.backend_mut();
         let result = {
-            let _guard = tempo_cov.then(TempoCoverageGuard::new);
+            let _guard =
+                tempo_active.then(|| TempoCoverageGuard::new(tempo_edges, tempo_trace_cmp));
             backend.inspect(&mut env, stack.as_inspector())?
         };
         let mut result =
             convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())?;
-        if tempo_cov {
-            TempoCoverageGuard::merge_into(&mut result);
+        if tempo_edges {
+            TempoCoverageGuard::merge_edges_into(&mut result);
+        }
+        if tempo_trace_cmp {
+            TempoCoverageGuard::drain_cmp_into(&mut result);
         }
         self.commit(&mut result);
         Ok(result)

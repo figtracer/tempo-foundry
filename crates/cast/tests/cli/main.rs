@@ -1952,12 +1952,10 @@ casttest!(mktx_ethsign, async |_prj, cmd| {
         rpc.as_str(),
     ])
     .assert_success()
-    .stdout_eq(str![[
-        r#"
+    .stdout_eq(str![[r#"
 0x76[..]
 
-"#
-    ]]);
+"#]]);
 });
 
 // tests that the raw encoded transaction is returned

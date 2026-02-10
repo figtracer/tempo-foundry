@@ -47,9 +47,7 @@ impl FoundryTxReceipt {
         receipt
             .other
             .insert("blockTimestamp".to_string(), serde_json::to_value(timestamp).unwrap());
-        receipt
-            .other
-            .insert("feePayer".to_string(), serde_json::to_value(fee_payer).unwrap());
+        receipt.other.insert("feePayer".to_string(), serde_json::to_value(fee_payer).unwrap());
         Self(receipt)
     }
 

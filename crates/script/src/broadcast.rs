@@ -570,8 +570,12 @@ impl BundledState {
                     (acc.0 + gas_used, acc.1 + gas_price, acc.2 + gas_used * gas_price)
                 });
             let paid = format_units(total_paid, 18).unwrap_or_else(|_| "N/A".to_string());
-            let avg_gas_price = format_units(total_gas_price / sequence.receipts.len() as u64, 9)
-                .unwrap_or_else(|_| "N/A".to_string());
+            let avg_gas_price = if sequence.receipts.is_empty() {
+                "N/A".to_string()
+            } else {
+                format_units(total_gas_price / sequence.receipts.len() as u64, 9)
+                    .unwrap_or_else(|_| "N/A".to_string())
+            };
 
             seq_progress.inner.write().set_status(&format!(
                 "Total Paid: {} {} ({} gas * avg {} gwei)\n",

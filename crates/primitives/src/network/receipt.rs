@@ -35,6 +35,26 @@ impl FoundryTxReceipt {
         receipt.other.insert("feePayer".to_string(), serde_json::to_value(fee_payer).unwrap());
         Self(receipt)
     }
+
+    /// Creates a new receipt with a timestamp in the other fields.
+    /// This avoids extra block lookups when timestamp is needed later.
+    pub fn with_timestamp(
+        inner: TransactionReceipt<FoundryReceiptEnvelope<Log>>,
+        timestamp: u64,
+    ) -> Self {
+        let fee_payer = inner.from;
+        let mut receipt = WithOtherFields::new(inner);
+        receipt
+            .other
+            .insert("blockTimestamp".to_string(), serde_json::to_value(timestamp).unwrap());
+        receipt.other.insert("feePayer".to_string(), serde_json::to_value(fee_payer).unwrap());
+        Self(receipt)
+    }
+
+    /// Get block timestamp from other fields if present.
+    pub fn block_timestamp(&self) -> Option<u64> {
+        self.0.other.get_deserialized::<u64>("blockTimestamp").transpose().ok().flatten()
+    }
 }
 
 impl ReceiptResponse for FoundryTxReceipt {

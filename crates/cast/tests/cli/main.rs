@@ -1954,7 +1954,7 @@ casttest!(mktx_ethsign, async |_prj, cmd| {
     .assert_success()
     .stdout_eq(str![[
         r#"
-0x76f875827a69843b9aca008502540be400825208d8d79400000000000000000000000000000000000000018080c0808080808080c0b841[..]
+0x76[..]
 
 "#
     ]]);

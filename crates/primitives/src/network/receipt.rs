@@ -42,10 +42,14 @@ impl FoundryTxReceipt {
         inner: TransactionReceipt<FoundryReceiptEnvelope<Log>>,
         timestamp: u64,
     ) -> Self {
+        let fee_payer = inner.from;
         let mut receipt = WithOtherFields::new(inner);
         receipt
             .other
             .insert("blockTimestamp".to_string(), serde_json::to_value(timestamp).unwrap());
+        receipt
+            .other
+            .insert("feePayer".to_string(), serde_json::to_value(fee_payer).unwrap());
         Self(receipt)
     }
 

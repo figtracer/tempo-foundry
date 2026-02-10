@@ -173,7 +173,7 @@ impl SendTxArgs {
 
             cast_send(
                 provider,
-                tx.into_inner().into(),
+                tx.into_inner(),
                 send_tx.cast_async,
                 send_tx.sync,
                 send_tx.confirmations,

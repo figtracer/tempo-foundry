@@ -1054,9 +1054,9 @@ impl<'a> FunctionRunner<'a> {
         // Enable edge coverage if running with coverage guided fuzzing or with edge coverage
         // metrics (useful for benchmarking the fuzzer).
         executor.inspector_mut().collect_edge_coverage(fuzz_config.corpus.collect_edge_coverage());
-        executor.inspector_mut().collect_tempo_precompile_edges(
-            fuzz_config.corpus.collect_tempo_precompile_edges(),
-        );
+        executor
+            .inspector_mut()
+            .collect_tempo_precompile_edges(fuzz_config.corpus.collect_tempo_precompile_edges());
         executor.inspector_mut().collect_tempo_precompile_trace_cmp(
             fuzz_config.corpus.collect_tempo_precompile_trace_cmp(),
         );

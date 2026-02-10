@@ -143,7 +143,7 @@ impl Executor {
             },
         );
 
-        Self { backend, env, inspector, gas_limit, legacy_assertions, hardfork }
+        Self { backend: Arc::new(backend), env, inspector, gas_limit, legacy_assertions, hardfork }
     }
 
     fn clone_with_backend(&self, backend: Backend) -> Self {

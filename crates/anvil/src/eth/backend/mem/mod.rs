@@ -58,7 +58,7 @@ use alloy_network::{
 };
 use alloy_primitives::{
     Address, B256, Bytes, TxHash, TxKind, U64, U256, address, hex, keccak256, logs_bloom,
-    map::{AddressMap, HashMap},
+    map::{AddressMap, HashMap, HashSet},
 };
 use alloy_rpc_types::{
     AccessList, Block as AlloyBlock, BlockId, BlockNumberOrTag as BlockNumber, BlockTransactions,
@@ -3134,15 +3134,18 @@ impl Backend {
 
         // Configure the block environment
         let mut env = self.env.read().clone();
-        env.evm_env.block_env = BlockEnv {
-            number: U256::from(block.header.number),
-            beneficiary: block.header.beneficiary,
-            timestamp: U256::from(block.header.timestamp),
-            difficulty: block.header.difficulty,
-            prevrandao: Some(block.header.mix_hash),
-            basefee: block.header.base_fee_per_gas.unwrap_or_default(),
-            gas_limit: block.header.gas_limit,
-            ..Default::default()
+        env.evm_env.block_env = TempoBlockEnv {
+            inner: BlockEnv {
+                number: U256::from(block.header.number),
+                beneficiary: block.header.beneficiary,
+                timestamp: U256::from(block.header.timestamp),
+                difficulty: block.header.difficulty,
+                prevrandao: Some(block.header.mix_hash),
+                basefee: block.header.base_fee_per_gas.unwrap_or_default(),
+                gas_limit: block.header.gas_limit,
+                ..Default::default()
+            },
+            timestamp_millis_part: 0,
         };
 
         // Execute each transaction in the block with tracing

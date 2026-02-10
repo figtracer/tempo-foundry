@@ -1351,7 +1351,7 @@ latest block number: {latest_block}"
             // need to update the dev signers and env with the chain id
             self.set_chain_id(Some(chain_id));
             env.evm_env.cfg_env.chain_id = chain_id;
-            env.tx.base.chain_id = chain_id.into();
+            env.tx.inner.chain_id = chain_id.into();
             chain_id
         };
 

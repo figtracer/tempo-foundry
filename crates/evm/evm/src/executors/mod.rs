@@ -93,11 +93,14 @@ sol! {
 #[derive(Clone, Debug)]
 pub struct Executor {
     /// The underlying `revm::Database` that contains the EVM storage.
+    ///
+    /// Wrapped in `Arc` for efficient cloning during parallel fuzzing. Use [`Arc::make_mut`]
+    /// for copy-on-write semantics when mutation is needed.
     // Note: We do not store an EVM here, since we are really
     // only interested in the database. REVM's `EVM` is a thin
     // wrapper around spawning a new EVM on every call anyway,
     // so the performance difference should be negligible.
-    backend: Backend,
+    backend: Arc<Backend>,
     /// The EVM environment.
     env: Env,
     /// The Revm inspector stack.
@@ -173,8 +176,11 @@ impl Executor {
     }
 
     /// Returns a mutable reference to the EVM backend.
+    ///
+    /// Uses copy-on-write semantics: if other clones of this executor share the backend,
+    /// this will clone the backend first.
     pub fn backend_mut(&mut self) -> &mut Backend {
-        &mut self.backend
+        Arc::make_mut(&mut self.backend)
     }
 
     /// Returns a reference to the EVM environment.

@@ -70,9 +70,21 @@ const SYNC_DIR: &str = "sync";
 const FAVORABILITY_THRESHOLD: f64 = 0.3;
 const COVERAGE_MAP_SIZE: usize = 65536;
 
+/// Laplace smoothing numerator for corpus entry productivity.
+/// Adds a pseudo-count of 1 "find" so that entries with zero finds still get nonzero weight,
+/// preventing starvation of recently-added seeds that haven't been mutated enough yet.
 const PRODUCTIVITY_SMOOTHING_ALPHA: f64 = 1.0;
+/// Laplace smoothing denominator for corpus entry productivity.
+/// A higher value dampens the productivity estimate, biasing toward uniform selection
+/// when an entry has few mutations — prevents over-exploiting early lucky finds.
 const PRODUCTIVITY_SMOOTHING_BETA: f64 = 10.0;
+/// Minimum weight floor for any corpus entry in weighted sampling.
+/// Guarantees every entry retains a nonzero selection probability even if its
+/// smoothed productivity is near zero, preventing permanent starvation.
 const WEIGHT_EPSILON: f64 = 0.01;
+/// Percentage chance (out of 100) of ignoring weights and picking a corpus entry
+/// uniformly at random. Acts as an exploration/anti-starvation mechanism so that
+/// low-weight entries still get occasional mutations.
 const EXPLORE_PROBABILITY: u32 = 10;
 
 /// Threshold for compressing corpus entries.

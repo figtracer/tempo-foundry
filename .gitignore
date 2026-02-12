@@ -27,3 +27,6 @@ _
 
 # Generated files
 tempo-changelog.md
+
+# LLVM profiling data
+*.profraw

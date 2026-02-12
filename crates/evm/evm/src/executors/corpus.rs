@@ -70,6 +70,23 @@ const SYNC_DIR: &str = "sync";
 const FAVORABILITY_THRESHOLD: f64 = 0.3;
 const COVERAGE_MAP_SIZE: usize = 65536;
 
+/// Laplace smoothing numerator for corpus entry productivity.
+/// Adds a pseudo-count of 1 "find" so that entries with zero finds still get nonzero weight,
+/// preventing starvation of recently-added seeds that haven't been mutated enough yet.
+const PRODUCTIVITY_SMOOTHING_ALPHA: f64 = 1.0;
+/// Laplace smoothing denominator for corpus entry productivity.
+/// A higher value dampens the productivity estimate, biasing toward uniform selection
+/// when an entry has few mutations — prevents over-exploiting early lucky finds.
+const PRODUCTIVITY_SMOOTHING_BETA: f64 = 10.0;
+/// Minimum weight floor for any corpus entry in weighted sampling.
+/// Guarantees every entry retains a nonzero selection probability even if its
+/// smoothed productivity is near zero, preventing permanent starvation.
+const WEIGHT_EPSILON: f64 = 0.01;
+/// Percentage chance (out of 100) of ignoring weights and picking a corpus entry
+/// uniformly at random. Acts as an exploration/anti-starvation mechanism so that
+/// low-weight entries still get occasional mutations.
+const EXPLORE_PROBABILITY: u32 = 10;
+
 /// Threshold for compressing corpus entries.
 /// 4KiB is usually the minimum file size on popular file systems.
 const GZIP_THRESHOLD: usize = 4 * 1024;
@@ -494,17 +511,25 @@ impl WorkerCorpus {
         if !self.in_memory_corpus.is_empty() {
             self.evict_oldest_corpus()?;
 
+            // 10% of the time, generate a fresh random sequence instead of mutating corpus.
+            // This prevents corpus modes from missing paths that pure random exploration finds.
+            if test_runner.rng().random_ratio(1, 10) {
+                new_seq.push(self.new_tx(test_runner)?);
+                return Ok(new_seq);
+            }
+
             let mutation_type = self
                 .mutation_generator
                 .new_tree(test_runner)
                 .map_err(|err| eyre!("Could not generate mutation type {err}"))?
                 .current();
 
-            let rng = test_runner.rng();
-            let corpus_len = self.in_memory_corpus.len();
-            let primary = &self.in_memory_corpus[rng.random_range(0..corpus_len)];
-            let secondary = &self.in_memory_corpus[rng.random_range(0..corpus_len)];
+            let primary_idx = self.select_weighted(test_runner.rng());
+            let secondary_idx = self.select_weighted(test_runner.rng());
+            let primary = &self.in_memory_corpus[primary_idx];
+            let secondary = &self.in_memory_corpus[secondary_idx];
 
+            let rng = test_runner.rng();
             match mutation_type {
                 MutationType::Splice => {
                     trace!(target: "corpus", "splice {} and {}", primary.uuid, secondary.uuid);
@@ -591,6 +616,24 @@ impl WorkerCorpus {
                     }
                 }
             }
+
+            // Havoc post-pass: after structural mutations, also mutate args of
+            // random calls (~30% per call) to inject dictionary values.
+            if !matches!(mutation_type, MutationType::Abi) && !new_seq.is_empty() {
+                let havoc_indices: Vec<usize> =
+                    (0..new_seq.len()).filter(|_| test_runner.rng().random_ratio(3, 10)).collect();
+                for idx in havoc_indices {
+                    let tx = &mut new_seq[idx];
+                    let targets = targeted_contracts.targets.lock();
+                    if let (_, Some(function)) = targets.fuzzed_artifacts(tx)
+                        && !function.inputs.is_empty()
+                    {
+                        let function = function.clone();
+                        drop(targets);
+                        let _ = self.abi_mutate(tx, &function, test_runner, fuzz_state);
+                    }
+                }
+            }
         }
 
         // Make sure the new sequence contains at least one tx to start fuzzing from.
@@ -619,8 +662,8 @@ impl WorkerCorpus {
         self.evict_oldest_corpus()?;
 
         let tx = if !self.in_memory_corpus.is_empty() {
-            let corpus = &self.in_memory_corpus
-                [test_runner.rng().random_range(0..self.in_memory_corpus.len())];
+            let idx = self.select_weighted(test_runner.rng());
+            let corpus = &self.in_memory_corpus[idx];
             self.current_mutated = Some(corpus.uuid);
             let mut tx = corpus.tx_seq.first().unwrap().clone();
             self.abi_mutate(&mut tx, function, test_runner, fuzz_state)?;
@@ -668,6 +711,50 @@ impl WorkerCorpus {
 
         // Continue with the next call initial sequence.
         Ok(sequence[depth].clone())
+    }
+
+    /// Select a corpus entry index using weighted sampling based on smoothed productivity.
+    ///
+    /// Weight = epsilon + (new_finds + alpha) / (total_mutations + beta)
+    ///
+    /// With `EXPLORE_PROBABILITY`% chance of uniform random selection (anti-starvation).
+    /// Entries with `total_mutations == 0` are always prioritized (unseen seeds).
+    fn select_weighted(&self, rng: &mut impl Rng) -> usize {
+        let corpus = &self.in_memory_corpus;
+        debug_assert!(!corpus.is_empty());
+
+        let unseen: Vec<usize> = corpus
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.total_mutations == 0)
+            .map(|(i, _)| i)
+            .collect();
+        if !unseen.is_empty() {
+            return unseen[rng.random_range(0..unseen.len())];
+        }
+
+        if rng.random_ratio(EXPLORE_PROBABILITY, 100) {
+            return rng.random_range(0..corpus.len());
+        }
+
+        let weights: Vec<f64> = corpus
+            .iter()
+            .map(|e| {
+                let productivity = (e.new_finds_produced as f64 + PRODUCTIVITY_SMOOTHING_ALPHA)
+                    / (e.total_mutations as f64 + PRODUCTIVITY_SMOOTHING_BETA);
+                WEIGHT_EPSILON + productivity
+            })
+            .collect();
+
+        let total: f64 = weights.iter().sum();
+        let mut r = rng.random_range(0.0..total);
+        for (i, w) in weights.iter().enumerate() {
+            r -= w;
+            if r <= 0.0 {
+                return i;
+            }
+        }
+        corpus.len() - 1
     }
 
     /// Flush the oldest corpus mutated more than configured max mutations unless they are

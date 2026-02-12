@@ -67,6 +67,9 @@ mod trace;
 
 pub use trace::TracingExecutor;
 
+mod tempo_cov;
+use tempo_cov::TempoCoverageGuard;
+
 const DURATION_BETWEEN_METRICS_REPORT: Duration = Duration::from_secs(5);
 
 sol! {
@@ -562,19 +565,47 @@ impl Executor {
     #[instrument(name = "call", level = "debug", skip_all)]
     pub fn call_with_env(&self, mut env: Env) -> eyre::Result<RawCallResult> {
         let mut stack = self.inspector().clone();
+        let tempo_edges = stack.inner.tempo_precompile_edges;
+        let tempo_trace_cmp = stack.inner.tempo_precompile_trace_cmp;
+        let tempo_active = tempo_edges || tempo_trace_cmp;
         let mut backend = CowBackend::new_borrowed(self.backend());
-        let result = backend.inspect(&mut env, stack.as_inspector())?;
-        convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())
+        let result = {
+            let _guard =
+                tempo_active.then(|| TempoCoverageGuard::new(tempo_edges, tempo_trace_cmp));
+            backend.inspect(&mut env, stack.as_inspector())?
+        };
+        let mut result =
+            convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())?;
+        if tempo_edges {
+            TempoCoverageGuard::merge_edges_into(&mut result);
+        }
+        if tempo_trace_cmp {
+            TempoCoverageGuard::drain_cmp_into(&mut result);
+        }
+        Ok(result)
     }
 
     /// Execute the transaction configured in `env.tx`.
     #[instrument(name = "transact", level = "debug", skip_all)]
     pub fn transact_with_env(&mut self, mut env: Env) -> eyre::Result<RawCallResult> {
         let mut stack = self.inspector().clone();
+        let tempo_edges = stack.inner.tempo_precompile_edges;
+        let tempo_trace_cmp = stack.inner.tempo_precompile_trace_cmp;
+        let tempo_active = tempo_edges || tempo_trace_cmp;
         let backend = self.backend_mut();
-        let result = backend.inspect(&mut env, stack.as_inspector())?;
+        let result = {
+            let _guard =
+                tempo_active.then(|| TempoCoverageGuard::new(tempo_edges, tempo_trace_cmp));
+            backend.inspect(&mut env, stack.as_inspector())?
+        };
         let mut result =
             convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())?;
+        if tempo_edges {
+            TempoCoverageGuard::merge_edges_into(&mut result);
+        }
+        if tempo_trace_cmp {
+            TempoCoverageGuard::drain_cmp_into(&mut result);
+        }
         self.commit(&mut result);
         Ok(result)
     }
@@ -915,6 +946,9 @@ pub struct RawCallResult {
     pub line_coverage: Option<HitMaps>,
     /// The edge coverage info collected during the call
     pub edge_coverage: Option<Vec<u8>>,
+    /// Comparison operands captured from Tempo precompile trace-cmp callbacks.
+    /// Each entry contains a width hint and a 32-byte big-endian value.
+    pub tempo_cmp_values: Option<Vec<foundry_tempo_coverage::CmpSample>>,
     /// Scripted transactions generated from this call
     pub transactions: Option<BroadcastableTransactions>,
     /// The changeset of the state.
@@ -945,6 +979,7 @@ impl Default for RawCallResult {
             traces: None,
             line_coverage: None,
             edge_coverage: None,
+            tempo_cmp_values: None,
             transactions: None,
             state_changeset: HashMap::default(),
             env: Env::default(),
@@ -1150,6 +1185,7 @@ fn convert_executed_result(
         traces,
         line_coverage,
         edge_coverage,
+        tempo_cmp_values: None,
         transactions,
         state_changeset,
         env,

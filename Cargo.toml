@@ -18,6 +18,7 @@ members = [
   "crates/evm/coverage/",
   "crates/evm/evm/",
   "crates/evm/fuzz/",
+  "crates/evm/tempo-coverage/",
   "crates/evm/traces/",
   "crates/fmt/",
   "crates/forge/",
@@ -97,6 +98,16 @@ inherits = "profiling"
 inherits = "release"
 lto = "fat"
 codegen-units = 1
+
+# Coverage-guided fuzzing of Tempo precompiles.
+# Only tempo-precompiles is compiled with sancov (via RUSTC_WRAPPER), so thin
+# LTO is safe — it won't inline away the sancov callbacks from that crate.
+# Build with: ./scripts/build-fuzz.sh
+[profile.fuzz]
+inherits = "release"
+lto = "thin"
+strip = "none"
+debug = "line-tables-only"
 
 # Speed up tests and dev build.
 [profile.dev.package]

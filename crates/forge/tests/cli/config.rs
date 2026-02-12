@@ -192,6 +192,8 @@ corpus_gzip = true
 corpus_min_mutations = 5
 corpus_min_size = 0
 show_edge_coverage = false
+tempo_precompile_edges = false
+tempo_precompile_trace_cmp = false
 failure_persist_dir = "cache/fuzz"
 show_logs = false
 
@@ -213,6 +215,8 @@ corpus_gzip = true
 corpus_min_mutations = 5
 corpus_min_size = 0
 show_edge_coverage = false
+tempo_precompile_edges = false
+tempo_precompile_trace_cmp = false
 failure_persist_dir = "cache/invariant"
 show_metrics = true
 show_solidity = false
@@ -1274,6 +1278,8 @@ forgetest_init!(test_default_config, |prj, cmd| {
     "corpus_min_mutations": 5,
     "corpus_min_size": 0,
     "show_edge_coverage": false,
+    "tempo_precompile_edges": false,
+    "tempo_precompile_trace_cmp": false,
     "failure_persist_dir": "cache/fuzz",
     "show_logs": false,
     "timeout": null
@@ -1297,6 +1303,8 @@ forgetest_init!(test_default_config, |prj, cmd| {
     "corpus_min_mutations": 5,
     "corpus_min_size": 0,
     "show_edge_coverage": false,
+    "tempo_precompile_edges": false,
+    "tempo_precompile_trace_cmp": false,
     "failure_persist_dir": "cache/invariant",
     "show_metrics": true,
     "timeout": null,

@@ -1227,7 +1227,6 @@ impl Cheatcode for executeTransactionCall {
         Ok(output.abi_encode())
     }
 }
-
 impl Cheatcode for startDebugTraceRecordingCall {
     fn apply_full(&self, ccx: &mut CheatsCtxt, executor: &mut dyn CheatcodesExecutor) -> Result {
         let Some(tracer) = executor.tracing_inspector() else {

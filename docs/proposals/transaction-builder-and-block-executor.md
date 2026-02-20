@@ -160,12 +160,128 @@ where
 
 This gives compile-time safety: you can't accidentally call `set_nonce_key` on an Ethereum `TransactionRequest`.
 
+### The Missing Link: Wiring Network to EVM Env
+
+Making `TransactionBuilder` sticky to `Network` is only half the story. The real problem is that
+the type chain breaks at the **EVM boundary**. Currently `Network` defines request/envelope types
+but has **no opinion** about the EVM env type. So the conversion from envelope → EVM env is done
+through ad-hoc `FromRecoveredTx` impls that panic on type mismatches.
+
+#### Current Pipeline (type info loss marked with ✗)
+
+```
+WithOtherFields<TransactionRequest>        ← RPC layer, untyped JSON bag
+    ↓ field sniffing ("feeToken", "nonceKey")  ✗ runtime dispatch, no compile-time safety
+FoundryTransactionRequest (enum)
+    ↓ build_typed_tx()
+FoundryTypedTx (enum)                       ← type preserved in variant
+    ↓ wallet.sign_request()
+FoundryTxEnvelope (enum)                    ← type preserved in variant
+    ↓ FromRecoveredTx<FoundryTxEnvelope>
+    ├─ for TxEnv:              Tempo(_) => panic!()                    ✗ HARD CRASH
+    ├─ for OpTransaction:      Tempo(_) => panic!()                    ✗ HARD CRASH
+    └─ for FoundryTempoTxEnv:  Tempo(aa) => TempoTxEnv::from(aa)      ✓ preserves fields
+    ↓ IntoTxEnv<EitherTx>
+EitherTx { base: OpTransaction<TxEnv>, tempo_tx: Option<TempoTxEnv> }
+    ↓ EitherEvm::transact_commit()
+    ├─ Eth:   uses base.base (TxEnv)        ✗ tempo fields gone
+    ├─ Op:    uses base (OpTransaction)      ✗ tempo fields gone
+    └─ Tempo: uses tempo_tx.unwrap()         ✓ but panics if None
+```
+
+The `FoundryTempoTxEnv` wrapper and `EitherTx` struct exist solely to shuttle Tempo fields
+through a pipeline that doesn't understand them. The `Option<TempoTxEnv>` on `EitherTx` is a
+type-system escape hatch — it works at runtime but the compiler can't verify correctness.
+
+#### Proposed: Network Defines Its TxEnv
+
+Add an associated type to `Network` that connects to the EVM execution layer:
+
+```rust
+pub trait Network {
+    type TxType: ...;
+    type TxEnvelope: ...;
+    type TransactionRequest: TransactionBuilder<Self>;
+
+    // NEW: The EVM transaction environment this network produces
+    type TxEnv: IntoTxEnv<Self::TxEnv>;
+}
+```
+
+For each network:
+```rust
+impl Network for Ethereum {
+    type TxEnv = TxEnv;                        // revm's flat TxEnv
+}
+impl Network for OpStack {
+    type TxEnv = OpTransaction<TxEnv>;         // OP-stack deposit fields
+}
+impl Network for TempoNetwork {
+    type TxEnv = TempoTxEnv;                   // fee_token, nonce_key, etc.
+}
+```
+
+Then the conversion becomes type-safe and non-panicking:
+
+```rust
+// Instead of FromRecoveredTx<FoundryTxEnvelope> for TxEnv (panics on Tempo)
+// We get:
+impl<N: Network> FromRecoveredTx<N::TxEnvelope> for N::TxEnv { ... }
+```
+
+Generic code that executes transactions:
+
+```rust
+fn execute_tx<N: Network>(
+    envelope: N::TxEnvelope,
+    evm: &mut impl Evm<Tx = N::TxEnv>,
+) {
+    let tx_env: N::TxEnv = FromRecoveredTx::from_recovered_tx(&envelope, caller);
+    evm.transact_commit(tx_env);  // compiler guarantees type match
+}
+```
+
+No panics. No `Option<TempoTxEnv>`. No `EitherTx` struct. The network type carries the
+information through the entire pipeline.
+
+#### What This Kills
+
+With `Network::TxEnv` properly wired:
+
+| Current Hack | Replaced By |
+|---|---|
+| `FoundryTempoTxEnv` wrapper struct | Direct `N::TxEnv` |
+| `EitherTx { base, tempo_tx: Option<...> }` | `N::TxEnv` (concrete per-network) |
+| `FromRecoveredTx` panics for Tempo on Eth/Op | Compile error (wrong Network type) |
+| `EitherEvm` 3-way match on every method | Generic `Evm<Tx = N::TxEnv>` |
+| `map_tempo_err_to_op` lossy error mapping | `N::HaltReason` (if Network also defines it) |
+
+#### Relationship to TransactionBuilder
+
+This is why mablr says TransactionBuilder is "folded with" the EVM env question. The full
+type-safe chain requires Network to define **both ends**:
+
+```
+N::TransactionRequest  ─── TransactionBuilder<N> ───→  N::UnsignedTx
+                                                              ↓ sign
+                                                        N::TxEnvelope
+                                                              ↓ recover
+                                                        N::TxEnv       ← NEW
+                                                              ↓
+                                                        Evm<Tx = N::TxEnv>
+```
+
+Without `N::TxEnv`, making TransactionBuilder sticky just gives you type safety on the
+request/build side while the execution side still uses enums, panics, and Options. Both
+ends need to be wired for the abstraction to hold.
+
 ### Migration Path
 
 1. **Now**: Define `TempoTransactionBuilder` trait in tempo-alloy. Implement for `TempoTransactionRequest`. No alloy upstream change needed.
 2. **PR to alloy**: Propose `Network::TransactionBuilderExt` associated type with default. Write motivation showing OP-Stack + Tempo both need this.
-3. **After alloy merge**: Update `FoundryTransactionRequest` to use trait-based dispatch instead of enum + field sniffing.
-4. **Eventually**: Kill `FoundryNetwork` — it's a lie. Use `TempoNetwork` or `Ethereum` or `OpStack` directly, parameterized through generics.
+3. **PR to alloy (or alloy-evm)**: Propose `Network::TxEnv` associated type connecting Network to EVM execution env. Motivation: eliminates panicking `FromRecoveredTx` impls, enables generic execution code.
+4. **After alloy merge**: Update `FoundryTransactionRequest` to use trait-based dispatch instead of enum + field sniffing. Kill `EitherTx` and `FoundryTempoTxEnv`.
+5. **Eventually**: Kill `FoundryNetwork` — it's a lie. Use `TempoNetwork` or `Ethereum` or `OpStack` directly, parameterized through generics.
 
 ---
 
@@ -284,15 +400,34 @@ The BlockExecutor approach:
 ## Dependency Order
 
 ```
-TempoTransactionBuilder trait (tempo-alloy)     [no deps, start now]
-    ↓
-Alloy PR: Network::TransactionBuilderExt        [needs motivation doc]
-    ↓
-Cast rewrite to generic Network                  [mablr, in progress]
-    ↓
-EitherEvm cleanup (kill panics/unsafe)           [after cast, or parallel]
-    ↓
-FoundryBlockExecutor + per-network executors     [after EitherEvm]
-    ↓
-Kill FoundryNetwork, use real Network types      [after all above]
+┌─ TempoTransactionBuilder trait (tempo-alloy)        [fig, no deps, start now]
+│
+├─ Alloy PR: Network::TransactionBuilderExt           [fig, needs motivation]
+│   Motivation: OP-Stack + Tempo both need network-specific builder fields.
+│   Extension traits (4844/7702) are free-standing but should be associated
+│   with the Network that supports them.
+│
+├─ Alloy PR: Network::TxEnv associated type           [fig, needs motivation]
+│   Motivation: FromRecoveredTx panics on cross-network conversion.
+│   Network should declare what EVM env it produces so the compiler
+│   prevents type mismatches instead of panicking at runtime.
+│
+├─ Signature type on Network                           [mablr, almost ready]
+│
+├─ Cast rewrite to generic Network                     [mablr, in progress]
+│
+├─ EitherEvm cleanup (kill panics/unsafe)              [after Network::TxEnv lands]
+│   With Network::TxEnv, EitherEvm can be replaced by generic
+│   Evm<Tx = N::TxEnv> — no more 3-way match per method.
+│
+├─ Kill EitherTx + FoundryTempoTxEnv                   [after EitherEvm cleanup]
+│   These wrappers exist only because Network doesn't carry TxEnv.
+│
+├─ FoundryBlockExecutor + per-network executors        [after EitherEvm cleanup]
+│   Each network gets its own executor impl. Shared behavior in wrapper.
+│
+└─ Kill FoundryNetwork, use real Network types         [after all above]
+    FoundryNetwork is a compatibility shim. Once Network is fully
+    parameterized with TxEnv + TransactionBuilderExt, we use
+    TempoNetwork / Ethereum / OpStack directly.
 ```
